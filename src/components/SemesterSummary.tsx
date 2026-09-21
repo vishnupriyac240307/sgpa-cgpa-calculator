@@ -22,7 +22,7 @@ export const SemesterSummary: React.FC<SemesterSummaryProps> = ({
             6-Semester Academic Summary
           </h3>
           <p className="text-xs text-slate-500">
-            Overview of completed credits and SGPA by semester
+            Overview of completed credits, SGPA, total marks, and percentage by semester
           </p>
         </div>
       </div>
@@ -33,7 +33,9 @@ export const SemesterSummary: React.FC<SemesterSummaryProps> = ({
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
               <th className="py-3 px-4">Semester</th>
               <th className="py-3 px-4 text-center">Included Credits</th>
+              <th className="py-3 px-4 text-center">Total Marks</th>
               <th className="py-3 px-4 text-center">Semester SGPA</th>
+              <th className="py-3 px-4 text-center">Percentage</th>
               <th className="py-3 px-4 text-center">Status</th>
             </tr>
           </thead>
@@ -60,8 +62,16 @@ export const SemesterSummary: React.FC<SemesterSummaryProps> = ({
                     {sem.isComplete ? sem.totalCredits : `${sem.completedCredits} / ${sem.totalCredits}`}
                   </td>
 
+                  <td className="py-3.5 px-4 text-center font-mono text-slate-800 font-semibold">
+                    {sem.totalObtainedMarks} / {sem.totalMaxMarks}
+                  </td>
+
                   <td className="py-3.5 px-4 text-center font-mono font-bold text-blue-700 text-base">
                     {format2Decimals(sem.sgpa)}
+                  </td>
+
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700">
+                    {sem.percentage !== null ? `${format2Decimals(sem.percentage)}%` : '--'}
                   </td>
 
                   <td className="py-3.5 px-4 text-center">

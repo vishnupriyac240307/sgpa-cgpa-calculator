@@ -26,8 +26,8 @@ describe('Grade Point & Weighted Point Calculations', () => {
   });
 });
 
-describe('Semester SGPA Calculation (Requirement Example #17)', () => {
-  it('calculates SGPA correctly for 100-mark, 75-mark, and 50-mark subjects', () => {
+describe('Semester SGPA & Percentage Calculation (Requirement Example #17)', () => {
+  it('calculates SGPA and Percentage correctly for 100-mark, 75-mark, and 50-mark subjects', () => {
     const subjects: Subject[] = [
       {
         id: 's1',
@@ -67,7 +67,7 @@ describe('Semester SGPA Calculation (Requirement Example #17)', () => {
         maxMarks: 100,
         credits: 4,
         included: false, // EXCLUDED
-        marks: 95, // High mark should NOT affect SGPA!
+        marks: 95,
       },
     ];
 
@@ -77,6 +77,12 @@ describe('Semester SGPA Calculation (Requirement Example #17)', () => {
     expect(result.totalWeightedPoints).toBe(74); // 32 + 24 + 18
     expect(result.sgpa).toBeCloseTo(74 / 9, 4); // 8.2222...
     expect(format2Decimals(result.sgpa)).toBe('8.22');
+
+    // Total Marks & Percentage check: (80 + 60 + 45) = 185 out of (100 + 75 + 50) = 225
+    expect(result.totalObtainedMarks).toBe(185);
+    expect(result.totalMaxMarks).toBe(225);
+    expect(result.percentage).toBeCloseTo((185 / 225) * 100, 4); // 82.2222%
+    expect(format2Decimals(result.percentage)).toBe('82.22');
   });
 
   it('handles blank/unentered marks without treating them as zero', () => {
@@ -108,11 +114,14 @@ describe('Semester SGPA Calculation (Requirement Example #17)', () => {
     expect(result.enteredSubjectCount).toBe(1);
     expect(result.completedCredits).toBe(4);
     expect(result.sgpa).toBe(8.0);
+    expect(result.totalObtainedMarks).toBe(80);
+    expect(result.totalMaxMarks).toBe(100);
+    expect(result.percentage).toBe(80.0);
   });
 });
 
-describe('CGPA Calculation (Weighted vs Naive Average)', () => {
-  it('calculates CGPA using total weighted points over total credits across semesters', () => {
+describe('CGPA & Overall Percentage Calculation', () => {
+  it('calculates overall CGPA and Overall Percentage accurately', () => {
     const sem1Subjects: Subject[] = [
       { id: '1', semester: 1, name: 'C1', category: 'Core', maxMarks: 100, credits: 16, included: true, marks: 80 },
     ];
@@ -130,7 +139,12 @@ describe('CGPA Calculation (Weighted vs Naive Average)', () => {
     expect(cgpaResult.totalWeightedPoints).toBe(236);
     expect(cgpaResult.cgpa).toBeCloseTo(236 / 28, 4);
     expect(format2Decimals(cgpaResult.cgpa)).toBe('8.43');
-    expect(cgpaResult.cgpa).not.toBe(8.5);
+
+    // Marks: (80 + 90) = 170 out of (100 + 100) = 200 -> 85.00%
+    expect(cgpaResult.totalObtainedMarks).toBe(170);
+    expect(cgpaResult.totalMaxMarks).toBe(200);
+    expect(cgpaResult.overallPercentage).toBe(85.0);
+    expect(format2Decimals(cgpaResult.overallPercentage)).toBe('85.00');
   });
 });
 

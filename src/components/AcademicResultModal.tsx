@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Semester, SemesterResult, CGPAResult, StudentInfo } from '../types/curriculum';
 import { calculateGradePoint, calculateWeightedPoint, format2Decimals } from '../utils/calculation';
-import { Printer, Download, X, Award, CheckCircle2, User, School } from 'lucide-react';
+import { Printer, Download, X, Award, CheckCircle2, User, School, Percent } from 'lucide-react';
 
 interface AcademicResultModalProps {
   isOpen: boolean;
@@ -33,11 +33,16 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
       registerNumber: studentInfo.registerNo || "N/A",
       dateGenerated: new Date().toLocaleDateString(),
       overallCGPA: format2Decimals(cgpaResult.cgpa),
+      overallPercentage: format2Decimals(cgpaResult.overallPercentage) + "%",
+      totalMarksObtained: cgpaResult.totalObtainedMarks,
+      totalMaxMarks: cgpaResult.totalMaxMarks,
       totalCredits: cgpaResult.totalCredits,
       totalWeightedPoints: format2Decimals(cgpaResult.totalWeightedPoints),
       semesters: semesterResults.map((sem) => ({
         semesterNumber: sem.semesterNumber,
         sgpa: format2Decimals(sem.sgpa),
+        percentage: sem.percentage !== null ? format2Decimals(sem.percentage) + "%" : "--",
+        totalMarks: `${sem.totalObtainedMarks}/${sem.totalMaxMarks}`,
         completedCredits: sem.completedCredits,
         isComplete: sem.isComplete,
       })),
@@ -66,7 +71,6 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Primary Print Result Button */}
             <button
               onClick={handlePrint}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
@@ -75,7 +79,6 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
               <span>Print Result</span>
             </button>
 
-            {/* Download JSON Button */}
             <button
               onClick={handleDownloadJSON}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium border border-slate-200 transition-colors"
@@ -85,7 +88,6 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
               <span>Download JSON</span>
             </button>
 
-            {/* Close Modal Button */}
             <button
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition-colors ml-1"
@@ -95,10 +97,10 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
           </div>
         </div>
 
-        {/* PRINTABLE / EXPORTABLE TRANSCRIPT REPORT CONTAINER */}
+        {/* PRINTABLE TRANSCRIPT REPORT CONTAINER */}
         <div className="p-6 sm:p-8 overflow-y-auto space-y-6 print-scroll-container" id="academic-transcript-report">
           
-          {/* Institution & Student Header */}
+          {/* Header Info */}
           <div className="border-b-2 border-slate-900 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-blue-800 font-bold text-xs uppercase tracking-widest">
@@ -112,7 +114,6 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
               </p>
             </div>
 
-            {/* Student Info Box */}
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1 min-w-[200px]">
               <div className="flex items-center gap-1.5 font-bold text-slate-900">
                 <User className="w-3.5 h-3.5 text-slate-500" />
@@ -132,12 +133,30 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
             <span className="text-xs uppercase font-bold tracking-widest text-blue-300 block mb-1">
               YOUR ACADEMIC RESULT
             </span>
-            <div className="text-5xl sm:text-6xl font-black font-mono tracking-tight text-white my-3">
-              {format2Decimals(cgpaResult.cgpa)}
+            
+            <div className="flex items-center justify-center gap-4 my-3 flex-wrap">
+              <div className="text-5xl sm:text-6xl font-black font-mono tracking-tight text-white">
+                {format2Decimals(cgpaResult.cgpa)} <span className="text-xs text-blue-300 font-sans block">CGPA</span>
+              </div>
+
+              {cgpaResult.overallPercentage !== null && (
+                <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-400 bg-emerald-950/60 px-4 py-2 rounded-2xl border border-emerald-500/40 flex items-center gap-1.5">
+                  <Percent className="w-6 h-6 text-emerald-400" />
+                  <span>{format2Decimals(cgpaResult.overallPercentage)}%</span>
+                  <span className="text-xs text-emerald-300 font-sans block ml-1">Overall</span>
+                </div>
+              )}
             </div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Total Credits Earned: <strong>{cgpaResult.totalCredits}</strong></span>
+
+            <div className="flex items-center justify-center gap-3 text-xs font-semibold flex-wrap">
+              <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                Total Credits Earned: <strong>{cgpaResult.totalCredits}</strong>
+              </span>
+
+              <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 border border-slate-700">
+                Total Marks: <strong>{cgpaResult.totalObtainedMarks} / {cgpaResult.totalMaxMarks}</strong>
+              </span>
             </div>
 
             {/* Semester SGPAs Grid */}
@@ -150,8 +169,11 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
                   <span className="text-lg font-mono font-bold text-white block mt-0.5">
                     {format2Decimals(sem.sgpa)}
                   </span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">
-                    {sem.completedCredits} Credits
+                  <span className="text-[11px] font-mono text-emerald-400 font-semibold block">
+                    {sem.percentage !== null ? `${format2Decimals(sem.percentage)}%` : '--'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
+                    {sem.totalObtainedMarks}/{sem.totalMaxMarks}m
                   </span>
                 </div>
               ))}
@@ -170,11 +192,13 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
 
               return (
                 <div key={sem.number} className="border border-slate-200 rounded-xl overflow-hidden text-xs">
-                  <div className="bg-slate-100 p-3 font-bold text-slate-800 flex justify-between items-center border-b border-slate-200">
+                  <div className="bg-slate-100 p-3 font-bold text-slate-800 flex justify-between items-center border-b border-slate-200 flex-wrap gap-2">
                     <span>Semester {sem.number}</span>
-                    <span className="font-mono text-blue-800">
-                      SGPA: {format2Decimals(semResult?.sgpa)} ({semResult?.completedCredits} Credits)
-                    </span>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="text-slate-600">Marks: {semResult?.totalObtainedMarks}/{semResult?.totalMaxMarks}</span>
+                      <span className="text-emerald-700 font-bold">{semResult?.percentage !== null ? `${format2Decimals(semResult?.percentage)}%` : '--'}</span>
+                      <span className="text-blue-800 font-bold">SGPA: {format2Decimals(semResult?.sgpa)}</span>
+                    </div>
                   </div>
 
                   <table className="w-full text-left border-collapse">

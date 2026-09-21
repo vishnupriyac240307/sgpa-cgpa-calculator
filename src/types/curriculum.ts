@@ -38,6 +38,9 @@ export interface SemesterResult {
   isComplete: boolean;
   enteredSubjectCount: number;
   totalIncludedSubjects: number;
+  totalObtainedMarks: number;
+  totalMaxMarks: number;
+  percentage: number | null;
 }
 
 export interface CGPAResult {
@@ -47,6 +50,9 @@ export interface CGPAResult {
   completedSemestersCount: number;
   isFullyCompleted: boolean;
   totalSemestersCount: number;
+  totalObtainedMarks: number;
+  totalMaxMarks: number;
+  overallPercentage: number | null;
 }
 
 export interface StudentInfo {

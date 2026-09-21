@@ -1,7 +1,7 @@
 import React from 'react';
 import type { CGPAResult, SemesterResult } from '../types/curriculum';
 import { format2Decimals } from '../utils/calculation';
-import { Award, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { Award, CheckCircle2, AlertCircle, Sparkles, Percent } from 'lucide-react';
 
 interface DashboardProps {
   cgpaResult: CGPAResult;
@@ -16,7 +16,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   activeSemester,
   onSelectSemester,
 }) => {
-  const { cgpa, totalCredits, completedSemestersCount, isFullyCompleted, totalSemestersCount } = cgpaResult;
+  const { cgpa, totalCredits, completedSemestersCount, isFullyCompleted, totalSemestersCount, totalObtainedMarks, totalMaxMarks, overallPercentage } = cgpaResult;
 
   return (
     <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl p-5 sm:p-7 shadow-xl border border-blue-900/40 relative overflow-hidden mb-8 no-print">
@@ -39,6 +39,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Main Hero CGPA Display Box */}
           <div className="lg:col-span-5 bg-white/5 backdrop-blur-md rounded-xl p-5 sm:p-6 border border-white/10 flex flex-col items-center justify-center text-center">
             <span className="text-xs uppercase tracking-wider font-semibold text-blue-300 mb-1 flex items-center gap-1.5">
               {isFullyCompleted ? (
@@ -58,15 +59,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {format2Decimals(cgpa)}
             </div>
 
-            <div className="inline-flex items-center gap-1.5 bg-blue-500/20 text-blue-200 text-xs px-3 py-1 rounded-full font-medium border border-blue-400/20 mt-1">
-              <span>Credits Completed: </span>
-              <span className="font-bold text-white">{totalCredits}</span>
+            {/* Overall Percentage & Marks Badge */}
+            <div className="flex items-center gap-2 flex-wrap justify-center mt-1">
+              <div className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-200 text-xs px-2.5 py-1 rounded-full font-bold border border-emerald-400/30">
+                <Percent className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Overall: {format2Decimals(overallPercentage)}%</span>
+              </div>
+
+              <div className="inline-flex items-center gap-1 bg-blue-500/20 text-blue-200 text-xs px-2.5 py-1 rounded-full font-medium border border-blue-400/20">
+                <span>Marks: <strong className="text-white font-mono">{totalObtainedMarks}/{totalMaxMarks}</strong></span>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-slate-400 mt-2 font-mono">
+              Credits Completed: <strong className="text-white">{totalCredits}</strong>
             </div>
           </div>
 
+          {/* Semester SGPAs Grid */}
           <div className="lg:col-span-7">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Semester SGPA Overview
+              Semester Overview & Percentage
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -98,10 +111,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {format2Decimals(sem.sgpa)}
                     </div>
 
-                    <div className="text-[10px] text-slate-400 mt-1">
-                      {sem.isComplete
-                        ? `${sem.totalCredits} Credits`
-                        : `${sem.completedCredits}/${sem.totalCredits} Credits`}
+                    <div className="flex items-center justify-between text-[10px] text-slate-300 mt-1 font-mono">
+                      <span>{sem.percentage !== null ? `${format2Decimals(sem.percentage)}%` : '--'}</span>
+                      <span className="text-slate-400">{sem.totalObtainedMarks}/{sem.totalMaxMarks}m</span>
                     </div>
                   </button>
                 );

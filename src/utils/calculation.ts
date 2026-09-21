@@ -19,8 +19,7 @@ export function calculateWeightedPoint(mark: number, maxMarks: number, credits: 
 }
 
 /**
- * Calculates SGPA for a single semester.
- * Returns null if no included subjects have entered marks.
+ * Calculates SGPA and Semester Percentage for a single semester.
  */
 export function calculateSGPA(subjects: Subject[], semesterNumber: number): SemesterResult {
   const includedSubjects = subjects.filter((s) => s.included);
@@ -40,6 +39,9 @@ export function calculateSGPA(subjects: Subject[], semesterNumber: number): Seme
       isComplete: false,
       enteredSubjectCount: 0,
       totalIncludedSubjects,
+      totalObtainedMarks: 0,
+      totalMaxMarks: 0,
+      percentage: null,
     };
   }
 
@@ -48,6 +50,10 @@ export function calculateSGPA(subjects: Subject[], semesterNumber: number): Seme
     (sum, s) => sum + calculateWeightedPoint(s.marks!, s.maxMarks, s.credits),
     0
   );
+
+  const totalObtainedMarks = enteredSubjects.reduce((sum, s) => sum + s.marks!, 0);
+  const totalMaxMarks = enteredSubjects.reduce((sum, s) => sum + s.maxMarks, 0);
+  const percentage = totalMaxMarks > 0 ? (totalObtainedMarks / totalMaxMarks) * 100 : null;
 
   const sgpa = completedCredits > 0 ? totalWeightedPoints / completedCredits : null;
   const isComplete = enteredSubjectCount === totalIncludedSubjects && totalIncludedSubjects > 0;
@@ -61,18 +67,21 @@ export function calculateSGPA(subjects: Subject[], semesterNumber: number): Seme
     isComplete,
     enteredSubjectCount,
     totalIncludedSubjects,
+    totalObtainedMarks,
+    totalMaxMarks,
+    percentage,
   };
 }
 
 /**
- * Calculates overall CGPA across all semesters using credit-weighted calculation.
- * CGPA = SUM(All Semester Weighted Points) / SUM(All Semester Credits)
- * Does NOT average SGPAs!
+ * Calculates overall CGPA and Overall Percentage across all semesters.
  */
 export function calculateCGPA(semesters: Semester[]): CGPAResult {
   let totalWeightedPoints = 0;
   let totalCompletedCredits = 0;
   let completedSemestersCount = 0;
+  let totalObtainedMarks = 0;
+  let totalMaxMarks = 0;
 
   for (const sem of semesters) {
     const semResult = calculateSGPA(sem.subjects, sem.number);
@@ -82,9 +91,12 @@ export function calculateCGPA(semesters: Semester[]): CGPAResult {
     
     totalWeightedPoints += semResult.totalWeightedPoints;
     totalCompletedCredits += semResult.completedCredits;
+    totalObtainedMarks += semResult.totalObtainedMarks;
+    totalMaxMarks += semResult.totalMaxMarks;
   }
 
   const cgpa = totalCompletedCredits > 0 ? totalWeightedPoints / totalCompletedCredits : null;
+  const overallPercentage = totalMaxMarks > 0 ? (totalObtainedMarks / totalMaxMarks) * 100 : null;
   const isFullyCompleted = completedSemestersCount === semesters.length && semesters.length > 0;
 
   return {
@@ -94,6 +106,9 @@ export function calculateCGPA(semesters: Semester[]): CGPAResult {
     completedSemestersCount,
     isFullyCompleted,
     totalSemestersCount: semesters.length,
+    totalObtainedMarks,
+    totalMaxMarks,
+    overallPercentage,
   };
 }
 

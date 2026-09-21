@@ -1,14 +1,14 @@
 import React from 'react';
 import type { SemesterResult } from '../types/curriculum';
 import { format2Decimals } from '../utils/calculation';
-import { CheckCircle2, Clock, Calculator } from 'lucide-react';
+import { CheckCircle2, Clock, Calculator, Percent } from 'lucide-react';
 
 interface SGPAResultProps {
   semesterResult: SemesterResult;
 }
 
 export const SGPAResult: React.FC<SGPAResultProps> = ({ semesterResult }) => {
-  const { sgpa, totalCredits, totalWeightedPoints, completedCredits, isComplete, enteredSubjectCount, totalIncludedSubjects } =
+  const { sgpa, totalCredits, totalWeightedPoints, completedCredits, isComplete, enteredSubjectCount, totalIncludedSubjects, totalObtainedMarks, totalMaxMarks, percentage } =
     semesterResult;
 
   return (
@@ -35,27 +35,41 @@ export const SGPAResult: React.FC<SGPAResultProps> = ({ semesterResult }) => {
               )}
             </div>
 
-            <div className="text-4xl sm:text-5xl font-black font-mono text-slate-900 tracking-tight mt-1">
-              {format2Decimals(sgpa)}
+            <div className="text-4xl sm:text-5xl font-black font-mono text-slate-900 tracking-tight mt-1 flex items-baseline gap-3">
+              <span>{format2Decimals(sgpa)}</span>
+              {percentage !== null && (
+                <span className="text-lg sm:text-xl font-bold font-mono text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
+                  <Percent className="w-4 h-4" /> {format2Decimals(percentage)}%
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:w-auto">
-          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-center">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
-              Total Credits
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-4 md:w-auto">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+              Credits
             </span>
-            <span className="text-xl sm:text-2xl font-bold font-mono text-slate-800">
-              {isComplete ? totalCredits : `${completedCredits} / ${totalCredits}`}
+            <span className="text-base sm:text-xl font-bold font-mono text-slate-800">
+              {isComplete ? totalCredits : `${completedCredits}/${totalCredits}`}
             </span>
           </div>
 
-          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-center">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
-              Total Weighted Points
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+              Total Marks
             </span>
-            <span className="text-xl sm:text-2xl font-bold font-mono text-blue-700">
+            <span className="text-base sm:text-xl font-bold font-mono text-slate-900">
+              {totalObtainedMarks}/{totalMaxMarks}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+              Weighted Pts
+            </span>
+            <span className="text-base sm:text-xl font-bold font-mono text-blue-700">
               {format2Decimals(totalWeightedPoints)}
             </span>
           </div>
