@@ -4,7 +4,6 @@ import { INITIAL_CURRICULUM } from './data/curriculum';
 import type { Semester, StudentInfo } from './types/curriculum';
 import { calculateSGPA, calculateCGPA } from './utils/calculation';
 import { loadStateFromStorage, saveStateToStorage, clearStorageData } from './utils/storage';
-import { saveToCloudStorage, loadFromCloudStorage } from './utils/cloudSync';
 
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
@@ -23,27 +22,16 @@ export function App() {
   const [activeSemesterNumber, setActiveSemesterNumber] = React.useState<number>(1);
   const [studentInfo, setStudentInfo] = React.useState<StudentInfo>({ name: '', registerNo: '' });
   const [isSaved, setIsSaved] = React.useState<boolean>(true);
-  const [isCloudSyncing, setIsCloudSyncing] = React.useState<boolean>(false);
   const [isResultModalOpen, setIsResultModalOpen] = React.useState<boolean>(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = React.useState<boolean>(false);
-  const [syncToastMsg, setSyncToastMsg] = React.useState<string | null>(null);
 
-  // Load saved state from LocalStorage or Cloud on mount
+  // Load saved state from LocalStorage on mount
   React.useEffect(() => {
     const saved = loadStateFromStorage();
     if (saved) {
-      if (saved.studentInfo && (saved.studentInfo.name || saved.studentInfo.registerNo)) {
+      if (saved.studentInfo && saved.studentInfo.name) {
         setStudentInfo(saved.studentInfo);
         setIsOnboardingOpen(false);
-
-        // Attempt background cloud sync check for student
-        if (saved.studentInfo.registerNo) {
-          loadFromCloudStorage(saved.studentInfo.registerNo).then((cloudData) => {
-            if (cloudData) {
-              applyCloudDataToState(cloudData, false);
-            }
-          });
-        }
       } else {
         setIsOnboardingOpen(true);
       }
@@ -70,42 +58,6 @@ export function App() {
     }
   }, []);
 
-  // Helper to apply cloud dataset into application state
-  const applyCloudDataToState = (cloudData: any, showNotice: boolean = true) => {
-    const { studentName, registerNo, marksMap, inclusionsMap, electivesMap } = cloudData;
-
-    if (studentName || registerNo) {
-      setStudentInfo({
-        name: studentName || 'Student',
-        registerNo: registerNo || '',
-      });
-    }
-
-    setSemesters((prevSemesters) =>
-      prevSemesters.map((sem) => ({
-        ...sem,
-        subjects: sem.subjects.map((sub) => {
-          const cloudMark = marksMap ? marksMap[sub.id] : undefined;
-          const cloudInclusion = inclusionsMap ? inclusionsMap[sub.id] : undefined;
-          const cloudElective = electivesMap ? electivesMap[sub.id] : undefined;
-
-          return {
-            ...sub,
-            marks: cloudMark !== undefined ? cloudMark : sub.marks,
-            included: cloudInclusion !== undefined ? cloudInclusion : sub.included,
-            selectedElective: cloudElective !== undefined ? cloudElective : sub.selectedElective,
-          };
-        }),
-      }))
-    );
-
-    if (showNotice) {
-      setSyncToastMsg(`☁️ Loaded cloud profile for ${studentName || registerNo}!`);
-      setTimeout(() => setSyncToastMsg(null), 4000);
-    }
-  };
-
-  // Helper to trigger LocalStorage & Cloud Storage Auto-Sync
   const triggerAutoSave = (updatedSemesters: Semester[], updatedStudentInfo: StudentInfo) => {
     const marksMap: Record<string, number | null> = {};
     const inclusionsMap: Record<string, boolean> = {};
@@ -121,35 +73,14 @@ export function App() {
       });
     });
 
-    // 1. Local Storage Sync
     saveStateToStorage(marksMap, inclusionsMap, electivesMap, updatedStudentInfo);
     setIsSaved(true);
-
-    // 2. Cross-Device Cloud Storage Sync (Background)
-    const syncKey = updatedStudentInfo.registerNo || updatedStudentInfo.name;
-    if (syncKey) {
-      setIsCloudSyncing(true);
-      saveToCloudStorage(
-        updatedStudentInfo.registerNo,
-        updatedStudentInfo.name,
-        marksMap,
-        inclusionsMap,
-        electivesMap
-      ).then(() => {
-        setIsCloudSyncing(false);
-      });
-    }
   };
 
-  const handleOnboardingSubmit = (info: StudentInfo, loadedCloudData?: any) => {
+  const handleOnboardingSubmit = (info: StudentInfo) => {
     setStudentInfo(info);
     setIsOnboardingOpen(false);
-
-    if (loadedCloudData) {
-      applyCloudDataToState(loadedCloudData, true);
-    } else {
-      triggerAutoSave(semesters, info);
-    }
+    triggerAutoSave(semesters, info);
 
     confetti({
       particleCount: 50,
@@ -276,29 +207,18 @@ export function App() {
         onOpenResultModal={() => setIsResultModalOpen(true)}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
         isSaved={isSaved}
-        isCloudSyncing={isCloudSyncing}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Sync Toast Notification */}
-        {syncToastMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-semibold flex items-center justify-between shadow-md animate-fade-in no-print">
-            <span>{syncToastMsg}</span>
-            <button onClick={() => setSyncToastMsg(null)} className="text-white hover:text-slate-200">
-              ✕
-            </button>
-          </div>
-        )}
-
         <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs sm:text-sm font-medium flex items-center justify-between no-print shadow-2xs">
           <span>
             {studentInfo.name
-              ? `Welcome ${studentInfo.name} (${studentInfo.registerNo || 'No Reg'})! Your marks sync across all your devices.`
+              ? `Welcome ${studentInfo.name}! Enter your marks to calculate SGPA and CGPA automatically.`
               : "Enter your marks. We'll calculate your SGPA and CGPA automatically."}
           </span>
           <span className="hidden md:inline-block text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md">
-            Cloud-Synced ☁️
+            Auto-Calculating
           </span>
         </div>
 
@@ -341,7 +261,7 @@ export function App() {
 
       <Footer />
 
-      {/* Onboarding Welcome / Cross-Device Sync Modal */}
+      {/* Onboarding Welcome Modal */}
       <StudentOnboardingModal
         isOpen={isOnboardingOpen}
         onSubmit={handleOnboardingSubmit}
