@@ -13,16 +13,6 @@ dotenv.config();
 
 const app = express();
 
-// Ensure DB is connected when request comes in
-app.use(async (_req, _res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
 app.use(
   cors({
     origin: true,
@@ -32,6 +22,24 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+
+// Ensure DB is connected when API request comes in
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    try {
+      await connectDB();
+      next();
+    } catch (err: any) {
+      console.error('Database middleware error:', err);
+      res.status(500).json({
+        error: 'Database connection failure. Please ensure MONGO_URI is configured in Vercel environment variables.',
+      });
+      return;
+    }
+  } else {
+    next();
+  }
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -58,6 +66,12 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(distPath, 'index.html'), (err) => {
     if (err) next();
   });
+});
+
+// Global Express Error Handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled server error:', err);
+  res.status(500).json({ error: err?.message || 'Internal server error' });
 });
 
 export default app;
