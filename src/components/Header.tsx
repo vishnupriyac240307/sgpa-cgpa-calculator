@@ -1,171 +1,89 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Calculator, Award, User as UserIcon, LogOut, LayoutDashboard, Edit3, ChevronDown, Printer } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-
-export type PageView = 'dashboard' | 'marks' | 'profile';
+import React from 'react';
+import { Calculator, Award, Save, RefreshCw, Printer, User } from 'lucide-react';
+import type { StudentInfo } from '../types/curriculum';
 
 interface HeaderProps {
-  activeView: PageView;
-  onNavigate: (view: PageView) => void;
-  onOpenTranscript?: () => void;
+  studentInfo: StudentInfo;
+  onResetSemester: () => void;
+  onResetAll: () => void;
+  onOpenResultModal: () => void;
+  onOpenOnboarding: () => void;
+  isSaved: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeView, onNavigate, onOpenTranscript }) => {
-  const { user, logout } = useAuth();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+export const Header: React.FC<HeaderProps> = ({
+  studentInfo,
+  onResetSemester,
+  onResetAll,
+  onOpenResultModal,
+  onOpenOnboarding,
+  isSaved,
+}) => {
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs no-print">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-        <div className="flex items-center justify-between gap-4">
-          {/* Logo and App Title */}
-          <div
-            className="flex items-center space-x-3 cursor-pointer"
-            onClick={() => onNavigate('dashboard')}
-          >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
-              <Calculator className="w-6 h-6" />
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs no-print">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+              <Calculator className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                   SGPA & CGPA Calculator
                 </h1>
-                <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   <Award className="w-3 h-3" /> B.Sc. CS & Data Analytics
                 </span>
               </div>
-              <p className="text-xs text-slate-500 hidden sm:block">
-                Academic Transcript & CGPA Management Portal
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Enter your marks. Get your SGPA and CGPA instantly.
               </p>
             </div>
           </div>
 
-          {/* Navigation & Profile */}
-          {user && (
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              {/* Navigation Links */}
-              <nav className="flex items-center space-x-1 sm:space-x-2">
-                <button
-                  onClick={() => onNavigate('dashboard')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition cursor-pointer ${
-                    activeView === 'dashboard'
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span className="hidden md:inline">Dashboard</span>
-                </button>
-
-                <button
-                  onClick={() => onNavigate('marks')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition cursor-pointer ${
-                    activeView === 'marks'
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <Edit3 className="w-4 h-4" />
-                  <span>Edit Marks</span>
-                </button>
-
-                {onOpenTranscript && (
-                  <button
-                    onClick={onOpenTranscript}
-                    className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
-                  >
-                    <Printer className="w-4 h-4" />
-                    <span>Transcript</span>
-                  </button>
-                )}
-              </nav>
-
-              {/* Profile Dropdown */}
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
-                >
-                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase">
-                    {user.username.charAt(0)}
-                  </div>
-                  <span className="max-w-[100px] truncate font-semibold text-slate-800">
-                    {user.username}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                </button>
-
-                {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-fadeIn">
-                    <div className="px-4 py-2 border-b border-slate-100">
-                      <p className="text-xs text-slate-400">Signed in as</p>
-                      <p className="text-sm font-semibold text-slate-900 truncate">
-                        {user.username}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        onNavigate('dashboard');
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <LayoutDashboard className="w-4 h-4 text-slate-400" />
-                      Dashboard
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        onNavigate('marks');
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Edit3 className="w-4 h-4 text-slate-400" />
-                      Edit Marks
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        onNavigate('profile');
-                        setDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <UserIcon className="w-4 h-4 text-slate-400" />
-                      Profile
-                    </button>
-
-                    <div className="border-t border-slate-100 my-1" />
-
-                    <button
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        logout();
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4 text-red-500" />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+          <div className="flex items-center flex-wrap gap-2 justify-between md:justify-end">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
+              <Save className={`w-3.5 h-3.5 ${isSaved ? 'text-emerald-500' : 'text-amber-500'}`} />
+              <span className="hidden sm:inline">Your progress is auto-saved on this device.</span>
+              <span className="sm:hidden">Auto-saved</span>
             </div>
-          )}
+
+            <button
+              onClick={onOpenOnboarding}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+              title="Edit Student Details"
+            >
+              <User className="w-3.5 h-3.5 text-slate-500" />
+              <span>{studentInfo.name ? studentInfo.name : 'Student Info'}</span>
+            </button>
+
+            <button
+              onClick={onOpenResultModal}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>View Transcript</span>
+            </button>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onResetSemester}
+                className="text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Reset active semester marks"
+              >
+                <RefreshCw className="w-3 h-3 text-slate-500" />
+                <span>Reset Sem</span>
+              </button>
+              <button
+                onClick={onResetAll}
+                className="text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg border border-rose-200 transition-colors cursor-pointer"
+                title="Reset all 6 semesters"
+              >
+                Reset All
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </header>

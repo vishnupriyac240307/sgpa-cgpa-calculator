@@ -1,265 +1,279 @@
 import { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { INITIAL_CURRICULUM } from './data/curriculum';
-import type { Semester } from './types/curriculum';
+import type { Semester, StudentInfo } from './types/curriculum';
 import { calculateSGPA, calculateCGPA } from './utils/calculation';
-import { getAcademicDataApi, saveAcademicDataApi } from './services/api';
+import { loadStateFromStorage, saveStateToStorage, clearStorageData } from './utils/storage';
 
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { Header, type PageView } from './components/Header';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { Dashboard } from './pages/Dashboard';
-import { Marks } from './pages/Marks';
-import { Profile } from './pages/Profile';
+import { Header } from './components/Header';
+import { Dashboard } from './components/Dashboard';
+import { SemesterTabs } from './components/SemesterTabs';
+import { SubjectTable } from './components/SubjectTable';
+import { SGPAResult } from './components/SGPAResult';
+import { SemesterSummary } from './components/SemesterSummary';
+import { CalculationInfo } from './components/CalculationInfo';
+import { WhatIfCalculator } from './components/WhatIfCalculator';
 import { AcademicResultModal } from './components/AcademicResultModal';
+import { StudentOnboardingModal } from './components/StudentOnboardingModal';
 import { Footer } from './components/Footer';
-import { GraduationCap } from 'lucide-react';
 
-function AppContent() {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
-  const [activeView, setActiveView] = useState<PageView>('dashboard');
-  const [initialMarksSem, setInitialMarksSem] = useState<number>(1);
-
+export function App() {
   const [semesters, setSemesters] = useState<Semester[]>(INITIAL_CURRICULUM);
-  const [isSavingMarks, setIsSavingMarks] = useState<boolean>(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [isTranscriptOpen, setIsTranscriptOpen] = useState<boolean>(false);
+  const [activeSemesterNumber, setActiveSemesterNumber] = useState<number>(1);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo>({ name: '', registerNo: '' });
+  const [isSaved, setIsSaved] = useState<boolean>(true);
+  const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
 
-  // Fetch academic data from MongoDB when user is logged in
+  // Load saved state from LocalStorage on mount
   useEffect(() => {
-    if (isAuthenticated && user) {
-      getAcademicDataApi()
-        .then((storedMarks) => {
-          if (storedMarks && typeof storedMarks === 'object') {
-            setSemesters((prevSemesters) =>
-              prevSemesters.map((sem) => {
-                const semMarks = storedMarks[sem.number] || storedMarks[String(sem.number)] || {};
-                return {
-                  ...sem,
-                  subjects: sem.subjects.map((sub) => {
-                    const savedMark = semMarks[sub.id];
-                    return {
-                      ...sub,
-                      marks: savedMark !== undefined ? savedMark : sub.marks,
-                    };
-                  }),
-                };
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to load user academic data:', err);
-        });
+    const saved = loadStateFromStorage();
+    if (saved) {
+      if (saved.studentInfo && saved.studentInfo.name) {
+        setStudentInfo(saved.studentInfo);
+        setIsOnboardingOpen(false);
+      } else {
+        setIsOnboardingOpen(true);
+      }
+
+      setSemesters((prevSemesters) =>
+        prevSemesters.map((sem) => ({
+          ...sem,
+          subjects: sem.subjects.map((sub) => {
+            const savedMark = saved.marksMap[sub.id];
+            const savedInclusion = saved.inclusionsMap[sub.id];
+            const savedElective = saved.electivesMap[sub.id];
+
+            return {
+              ...sub,
+              marks: savedMark !== undefined ? savedMark : sub.marks,
+              included: savedInclusion !== undefined ? savedInclusion : sub.included,
+              selectedElective: savedElective !== undefined ? savedElective : sub.selectedElective,
+            };
+          }),
+        }))
+      );
     } else {
-      // Reset semesters to default template when logged out
-      setSemesters(INITIAL_CURRICULUM);
-      setActiveView('dashboard');
+      setIsOnboardingOpen(true);
     }
-  }, [isAuthenticated, user]);
+  }, []);
 
-  const handleUpdateMark = (semNumber: number, subjectId: string, mark: number | null) => {
-    setSemesters((prevSemesters) =>
-      prevSemesters.map((sem) => {
-        if (sem.number === semNumber) {
-          const updatedSubjects = sem.subjects.map((sub) => {
-            if (sub.id === subjectId) {
-              return { ...sub, marks: mark };
-            }
-            return sub;
-          });
+  const triggerAutoSave = (updatedSemesters: Semester[], updatedStudentInfo: StudentInfo) => {
+    const marksMap: Record<string, number | null> = {};
+    const inclusionsMap: Record<string, boolean> = {};
+    const electivesMap: Record<string, string> = {};
 
-          // Trigger celebratory confetti if semester becomes complete
-          const semResult = calculateSGPA(updatedSubjects, sem.number);
-          if (semResult.isComplete && mark !== null) {
-            confetti({
-              particleCount: 60,
-              spread: 60,
-              origin: { y: 0.7 },
-            });
-          }
-
-          return { ...sem, subjects: updatedSubjects };
-        }
-        return sem;
-      })
-    );
-  };
-
-  const handleToggleInclusion = (semNumber: number, subjectId: string, included: boolean) => {
-    setSemesters((prevSemesters) =>
-      prevSemesters.map((sem) => {
-        if (sem.number === semNumber) {
-          return {
-            ...sem,
-            subjects: sem.subjects.map((sub) => {
-              if (sub.id === subjectId) {
-                return { ...sub, included };
-              }
-              return sub;
-            }),
-          };
-        }
-        return sem;
-      })
-    );
-  };
-
-  const handleSelectElective = (semNumber: number, subjectId: string, selected: string) => {
-    setSemesters((prevSemesters) =>
-      prevSemesters.map((sem) => {
-        if (sem.number === semNumber) {
-          return {
-            ...sem,
-            subjects: sem.subjects.map((sub) => {
-              if (sub.id === subjectId) {
-                return { ...sub, selectedElective: selected };
-              }
-              return sub;
-            }),
-          };
-        }
-        return sem;
-      })
-    );
-  };
-
-  const handleSaveMarks = async () => {
-    setIsSavingMarks(true);
-    setSaveMessage(null);
-
-    // Build marks structure: { [semesterNumber]: { [subjectId]: mark } }
-    const marksData: Record<string, Record<string, number | null>> = {};
-    semesters.forEach((sem) => {
-      marksData[sem.number] = {};
+    updatedSemesters.forEach((sem) => {
       sem.subjects.forEach((sub) => {
-        marksData[sem.number][sub.id] = sub.marks;
+        marksMap[sub.id] = sub.marks;
+        inclusionsMap[sub.id] = sub.included;
+        if (sub.selectedElective) {
+          electivesMap[sub.id] = sub.selectedElective;
+        }
       });
     });
 
-    try {
-      await saveAcademicDataApi(marksData);
-      setSaveMessage('Marks saved successfully.');
-      setTimeout(() => setSaveMessage(null), 4000);
-    } catch (err: any) {
-      alert(err.message || 'Failed to save marks.');
-    } finally {
-      setIsSavingMarks(false);
+    saveStateToStorage(marksMap, inclusionsMap, electivesMap, updatedStudentInfo);
+    setIsSaved(true);
+  };
+
+  const handleOnboardingSubmit = (info: StudentInfo) => {
+    setStudentInfo(info);
+    setIsOnboardingOpen(false);
+    triggerAutoSave(semesters, info);
+
+    confetti({
+      particleCount: 50,
+      spread: 50,
+      origin: { y: 0.6 },
+    });
+  };
+
+  const handleUpdateMark = (subjectId: string, mark: number | null) => {
+    setSemesters((prevSemesters) => {
+      const nextSemesters = prevSemesters.map((sem) => ({
+        ...sem,
+        subjects: sem.subjects.map((sub) => {
+          if (sub.id === subjectId) {
+            return { ...sub, marks: mark };
+          }
+          return sub;
+        }),
+      }));
+
+      const currentActiveSem = nextSemesters.find((s) => s.number === activeSemesterNumber);
+      if (currentActiveSem) {
+        const semResult = calculateSGPA(currentActiveSem.subjects, currentActiveSem.number);
+        if (semResult.isComplete && mark !== null) {
+          confetti({
+            particleCount: 70,
+            spread: 60,
+            origin: { y: 0.7 },
+          });
+        }
+      }
+
+      triggerAutoSave(nextSemesters, studentInfo);
+      return nextSemesters;
+    });
+  };
+
+  const handleToggleInclusion = (subjectId: string, included: boolean) => {
+    setSemesters((prevSemesters) => {
+      const nextSemesters = prevSemesters.map((sem) => ({
+        ...sem,
+        subjects: sem.subjects.map((sub) => {
+          if (sub.id === subjectId) {
+            return { ...sub, included };
+          }
+          return sub;
+        }),
+      }));
+
+      triggerAutoSave(nextSemesters, studentInfo);
+      return nextSemesters;
+    });
+  };
+
+  const handleSelectElective = (subjectId: string, selected: string) => {
+    setSemesters((prevSemesters) => {
+      const nextSemesters = prevSemesters.map((sem) => ({
+        ...sem,
+        subjects: sem.subjects.map((sub) => {
+          if (sub.id === subjectId) {
+            return { ...sub, selectedElective: selected };
+          }
+          return sub;
+        }),
+      }));
+
+      triggerAutoSave(nextSemesters, studentInfo);
+      return nextSemesters;
+    });
+  };
+
+
+
+  const handleResetSemester = () => {
+    if (!window.confirm(`Are you sure you want to clear marks for Semester ${activeSemesterNumber}?`)) {
+      return;
     }
+
+    setSemesters((prevSemesters) => {
+      const nextSemesters = prevSemesters.map((sem) => {
+        if (sem.number === activeSemesterNumber) {
+          return {
+            ...sem,
+            subjects: sem.subjects.map((sub) => ({ ...sub, marks: null })),
+          };
+        }
+        return sem;
+      });
+
+      triggerAutoSave(nextSemesters, studentInfo);
+      return nextSemesters;
+    });
   };
 
-  const handleNavigateToMarks = (semNumber: number = 1) => {
-    setInitialMarksSem(semNumber);
-    setActiveView('marks');
+  const handleResetAll = () => {
+    if (!window.confirm('Are you sure you want to reset ALL 6 semesters and clear saved progress?')) {
+      return;
+    }
+
+    clearStorageData();
+    setStudentInfo({ name: '', registerNo: '' });
+    setSemesters(INITIAL_CURRICULUM);
+    setIsSaved(true);
+    setIsOnboardingOpen(true);
   };
 
-  // Loading Screen
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <div className="w-16 h-16 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin mb-4" />
-        <p className="text-sm font-semibold text-slate-700 animate-pulse">
-          Loading your academic data...
-        </p>
-      </div>
-    );
-  }
-
-  // Unauthenticated Screen
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans text-slate-900">
-        <header className="bg-white border-b border-slate-200 py-4 px-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
-                <GraduationCap className="w-6 h-6" />
-              </div>
-              <span className="font-bold text-lg text-slate-900">
-                SGPA & CGPA Calculator
-              </span>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1">
-          {authView === 'login' ? (
-            <Login onSwitchToRegister={() => setAuthView('register')} />
-          ) : (
-            <Register onSwitchToLogin={() => setAuthView('login')} />
-          )}
-        </main>
-
-        <Footer />
-      </div>
-    );
-  }
-
-  // Authenticated Application Screens
   const semesterResults = semesters.map((sem) => calculateSGPA(sem.subjects, sem.number));
   const cgpaResult = calculateCGPA(semesters);
 
+  const activeSemester = semesters.find((s) => s.number === activeSemesterNumber) || semesters[0];
+  const activeSemesterResult = semesterResults.find((r) => r.semesterNumber === activeSemesterNumber) || semesterResults[0];
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-blue-500 selection:text-white">
+      {/* Header Bar */}
       <Header
-        activeView={activeView}
-        onNavigate={setActiveView}
-        onOpenTranscript={() => setIsTranscriptOpen(true)}
+        studentInfo={studentInfo}
+        onResetSemester={handleResetSemester}
+        onResetAll={handleResetAll}
+        onOpenResultModal={() => setIsResultModalOpen(true)}
+        onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        isSaved={isSaved}
       />
 
-      <main className="flex-1">
-        {activeView === 'dashboard' && (
-          <Dashboard
-            semesters={semesters}
-            onNavigateToMarks={handleNavigateToMarks}
-            onOpenTranscript={() => setIsTranscriptOpen(true)}
-          />
-        )}
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs sm:text-sm font-medium flex items-center justify-between no-print shadow-2xs">
+          <span>
+            {studentInfo.name
+              ? `Welcome ${studentInfo.name}! Enter your marks to calculate SGPA and CGPA automatically.`
+              : "Enter your marks. We'll calculate your SGPA and CGPA automatically."}
+          </span>
+          <span className="hidden md:inline-block text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md">
+            Auto-Calculating
+          </span>
+        </div>
 
-        {activeView === 'marks' && (
-          <Marks
-            semesters={semesters}
-            initialSemester={initialMarksSem}
-            onUpdateMark={handleUpdateMark}
-            onToggleInclusion={handleToggleInclusion}
-            onSelectElective={handleSelectElective}
-            onSaveMarks={handleSaveMarks}
-            isSaving={isSavingMarks}
-            saveMessage={saveMessage}
-            onNavigateToDashboard={() => setActiveView('dashboard')}
-          />
-        )}
+        <Dashboard
+          cgpaResult={cgpaResult}
+          semesterResults={semesterResults}
+          activeSemester={activeSemesterNumber}
+          onSelectSemester={setActiveSemesterNumber}
+        />
 
-        {activeView === 'profile' && (
-          <Profile onNavigateToDashboard={() => setActiveView('dashboard')} />
-        )}
+        <SemesterTabs
+          activeSemester={activeSemesterNumber}
+          onSelectSemester={setActiveSemesterNumber}
+          semesterResults={semesterResults}
+        />
+
+        <SGPAResult semesterResult={activeSemesterResult} />
+
+        <SubjectTable
+          subjects={activeSemester.subjects}
+          onUpdateMark={handleUpdateMark}
+          onToggleInclusion={handleToggleInclusion}
+          onSelectElective={handleSelectElective}
+        />
+
+        <CalculationInfo subjects={activeSemester.subjects} />
+
+        <WhatIfCalculator
+          semesters={semesters}
+          semesterResults={semesterResults}
+          currentCGPA={cgpaResult.cgpa}
+        />
+
+        <SemesterSummary
+          semesterResults={semesterResults}
+          onSelectSemester={setActiveSemesterNumber}
+          activeSemester={activeSemesterNumber}
+        />
       </main>
 
       <Footer />
 
+      {/* Onboarding Welcome Modal */}
+      <StudentOnboardingModal
+        isOpen={isOnboardingOpen}
+        onSubmit={handleOnboardingSubmit}
+        initialInfo={studentInfo}
+      />
+
       {/* Official Academic Result Transcript Modal */}
       <AcademicResultModal
-        isOpen={isTranscriptOpen}
-        onClose={() => setIsTranscriptOpen(false)}
+        isOpen={isResultModalOpen}
+        onClose={() => setIsResultModalOpen(false)}
         semesters={semesters}
         semesterResults={semesterResults}
         cgpaResult={cgpaResult}
-        studentInfo={{
-          name: user?.username || 'Student',
-          registerNo: 'CS-DA-' + (user?._id?.substring(0, 6) || '001'),
-        }}
+        studentInfo={studentInfo}
       />
     </div>
-  );
-}
-
-export function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
   );
 }
 
