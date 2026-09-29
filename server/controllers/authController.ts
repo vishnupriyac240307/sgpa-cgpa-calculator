@@ -1,8 +1,8 @@
 import type { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/User.js';
-import type { AuthRequest } from '../middleware/auth.js';
+import { User } from '../models/User';
+import type { AuthRequest } from '../middleware/auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_sgpa_cgpa_calculator_2026';
 

@@ -1,6 +1,6 @@
 import type { Response } from 'express';
-import { AcademicData } from '../models/AcademicData.js';
-import type { AuthRequest } from '../middleware/auth.js';
+import { AcademicData } from '../models/AcademicData';
+import type { AuthRequest } from '../middleware/auth';
 
 export async function getAcademicData(req: AuthRequest, res: Response): Promise<void> {
   try {

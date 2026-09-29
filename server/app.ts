@@ -4,10 +4,10 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { connectDB } from './config/db.js';
-import authRoutes from './routes/auth.js';
-import academicRoutes from './routes/academic.js';
-import dashboardRoutes from './routes/dashboard.js';
+import { connectDB } from './config/db';
+import authRoutes from './routes/auth';
+import academicRoutes from './routes/academic';
+import dashboardRoutes from './routes/dashboard';
 
 dotenv.config();
 
