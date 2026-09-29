@@ -1,26 +1,50 @@
-# 🎓 SGPA & CGPA Calculator
+# 🎓 SGPA & CGPA Calculator (Full-Stack Edition)
 ### B.Sc. Computer Science with Data Analytics (6-Semester Degree)
 
 ![React](https://img.shields.io/badge/React-19-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)
-![Vite](https://img.shields.io/badge/Vite-6.0-purple?logo=vite)
+![Node.js](https://img.shields.io/badge/Node.js-Express-green?logo=nodedotjs)
+![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-green?logo=mongodb)
+![JWT](https://img.shields.io/badge/Auth-JWT_&_bcrypt-orange)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-cyan?logo=tailwindcss)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-A modern, high-precision academic grade calculator specifically pre-configured for the 6-Semester **B.Sc. Computer Science with Data Analytics** curriculum. Built to calculate exact Semester Grade Point Average (SGPA) and overall Cumulative Grade Point Average (CGPA) using strict credit-weighted calculations.
+A modern full-stack user-authenticated academic management portal pre-configured for the 6-Semester **B.Sc. Computer Science with Data Analytics** degree curriculum. Allows students to register, securely log in, enter marks, dynamically calculate SGPA and CGPA, and persist their academic records across devices using MongoDB.
 
 ---
 
 ## 🌟 Key Features
 
-* **⚡ Pre-Configured 6-Semester Curriculum**: Complete subject mapping, maximum marks (100, 75, 50), and course credits (4, 3, 2) pre-loaded out of the box. Zero manual setup required for students.
-* **📐 Pure Credit-Weighted Engine**: Calculates SGPA and CGPA using precise credit-weighted summation ($\sum \text{Weighted Points} / \sum \text{Credits}$) rather than naive averaging.
-* **🛡️ Strict Subject Eligibility Rules**: Automatically includes Core, Core Lab, Allied, and Skill-Based subjects while excluding general non-credit courses (Language, English, Environmental Studies, Value Education, Naan Mudhalvan, etc.).
-* **🎯 What-If CGPA Projection Tool**: Allows students to project target graduation CGPA by entering expected future SGPAs.
-* **📊 Personal Academic Dashboard**: Highlighting Current vs. Final CGPA, total completed credits, and an interactive 6-semester SGPA overview.
-* **📄 Printable Academic Transcript & JSON Export**: One-click official academic report view formatted for unconstrained multi-page printing or PDF saving.
-* **💾 Automatic Progress Saving**: Automatically persists entered marks and student details to browser `localStorage`.
-* **📱 Responsive Academic UI**: Optimized for desktop computers, tablets, and mobile devices with custom card views.
+* **🔐 User Authentication & Security**:
+  * Complete Login and Registration flow.
+  * Passwords hashed with `bcryptjs`.
+  * JWT (JSON Web Tokens) with secure HTTP-only cookies and Bearer token fallback.
+  * Password hashes are **never** exposed in API responses.
+  * Protected API routes using Express authentication middleware.
+  * Optional **Change Password** feature in user profile.
+
+* **🔒 Strict User Data Isolation**:
+  * Every student's marks and academic transcripts are securely isolated.
+  * Requests strictly use the authenticated `userId` extracted from the JWT token.
+  * Frontend cannot override or request another student's academic data.
+
+* **⚡ Pre-Configured 6-Semester Curriculum**:
+  * Pre-loaded course mapping, maximum marks (100, 75, 50), and credits (4, 3, 2).
+  * Strict inclusion rules for Core, Core Lab, Allied, and Skill-Based subjects.
+  * Automatic exclusion of general non-credit courses (Language, English, EVS, Value Education, etc.).
+
+* **📐 High-Precision CGPA Engine**:
+  * Calculates SGPA & CGPA using exact credit-weighted summation ($\sum \text{Weighted Points} / \sum \text{Credits}$).
+  * Dynamic **"How your CGPA is calculated"** step-by-step breakdown.
+  * Stores raw entered marks as the source of truth, dynamically recalculating SGPA & CGPA with full floating-point precision.
+
+* **📊 Personal Student Dashboard**:
+  * Current CGPA, Completed Credits, and Completed Semesters count (e.g. `4 / 6`).
+  * 6 Semester overview cards displaying SGPA, Credits, and Completion Status.
+  * Direct `[ Enter / Edit Marks ]` and `[ Save Marks ]` workflows with immediate dashboard updates.
+
+* **📄 Official Academic Transcript View**:
+  * Printable academic report view formatted for unconstrained multi-page printing.
 
 ---
 
@@ -38,85 +62,64 @@ $$\text{SGPA} = \frac{\sum_{\text{Included Subjects}} \text{Weighted Points}}{\s
 ### 4. Overall CGPA
 $$\text{CGPA} = \frac{\sum_{\text{All Included Subjects Across Semesters}} \text{Weighted Points}}{\sum_{\text{All Included Subjects Across Semesters}} \text{Credits}}$$
 
-> ⚠️ **Note**: CGPA is **never** calculated by simply averaging SGPA values. It directly sums credit-weighted points across all completed semesters to ensure accurate representation of unequal credit distributions.
+---
+
+## 🏗️ Architecture & Tech Stack
+
+```
+sgpa-cgpa-calculator/
+├── server/               # Express + Node.js Backend
+│   ├── config/           # MongoDB / MongoMemoryServer connection
+│   ├── controllers/      # Auth & Academic Controllers
+│   ├── middleware/       # JWT Authentication Middleware
+│   ├── models/           # User & AcademicData Mongoose Schemas
+│   └── routes/           # Protected API endpoints (/api/auth, /api/academic)
+└── src/                  # React + TypeScript Frontend
+    ├── components/       # Header, Dashboard, SubjectTable, SGPAResult, Transcript Modal
+    ├── context/          # AuthContext provider
+    ├── pages/            # Login, Register, Dashboard, Marks, Profile
+    ├── services/         # API Service client (fetch /api)
+    └── utils/            # Calculation engine & Vitest test suite
+```
 
 ---
 
-## 📚 Curriculum Structure Overview
-
-| Semester | Included Course Categories | Total Credits |
-| :--- | :--- | :---: |
-| **Semester I** | Core 1, Core 2, Core Lab 1, Allied 1 | **16 Credits** |
-| **Semester II** | Core 3, Core Lab 2, Core Lab 3, Allied 2 | **12 Credits** |
-| **Semester III** | Core 4, Core 5, Core Lab 4, Allied 3, Skill Based 1 | **15 Credits** |
-| **Semester IV** | Core 6, Core 7, Core Lab 5, Allied 4, Skill Based 2 Lab | **13 Credits** |
-| **Semester V** | Core 8, Core 9, Core Lab 6, Skill Based 3 | **15 Credits** |
-| **Semester VI** | Core 10, Core 11, Core Lab 7, Skill Based 4 | **13 Credits** |
-
-*(Elective courses and general subjects can be custom-toggled in the interface if required).*
-
----
-
-## 🛠️ Tech Stack
-
-* **Frontend**: [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/)
-* **Build Tool**: [Vite 6](https://vitejs.dev/)
-* **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-* **Icons**: [Lucide React](https://lucide.react.dev/)
-* **Effects**: [Canvas Confetti](https://www.npmjs.com/package/canvas-confetti)
-* **Testing**: [Vitest](https://vitest.dev/)
-
----
-
-## 🚀 Getting Started
+## 🚀 Quick Start Guide
 
 ### Prerequisites
-* Node.js v18+ 
+* Node.js v18+
 * npm v9+
 
-### Installation & Local Setup
+### Setup & Launch
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/vishnupriyac240307/sgpa-cgpa-calculator.git
-
-# Navigate into the project directory
 cd sgpa-cgpa-calculator
 
-# Install dependencies
+# 2. Install dependencies
 npm install
 
-# Start local development server
+# 3. Start full-stack development environment (Backend + Frontend)
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+* Express Server starts on port **5000** (with automatic zero-config MongoMemoryServer fallback if local MongoDB is not running).
+* Vite Frontend starts on [http://localhost:5173](http://localhost:5173).
 
 ---
 
-## 🧪 Testing & Build
+## 🧪 Testing & Verification
 
 ```bash
-# Run automated unit test suite
+# Run all unit tests & backend API integration tests (17 tests)
+npm test
+# OR
 npx vitest run
 
 # Build for production
 npm run build
 ```
-
----
-
-## 🌐 Deploy to Vercel or Netlify
-
-### Deploy to Vercel (1-Click)
-1. Go to [vercel.com/new](https://vercel.com/new) and connect your GitHub account.
-2. Select `sgpa-cgpa-calculator`.
-3. Click **Deploy**.
-
-### Deploy to Netlify
-1. Go to [app.netlify.com/start](https://app.netlify.com/start) and select your GitHub repository.
-2. Set Build Command: `npm run build` and Publish Directory: `dist`.
-3. Click **Deploy Site**.
 
 ---
 
