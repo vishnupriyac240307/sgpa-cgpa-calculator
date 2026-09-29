@@ -15,6 +15,35 @@ interface AcademicDataResponse {
   error?: string;
 }
 
+/**
+ * Safely parses response and throws friendly error messages if response is non-JSON or HTML.
+ */
+async function handleResponse<T>(res: Response): Promise<T> {
+  const contentType = res.headers.get('content-type');
+  
+  if (contentType && contentType.includes('application/json')) {
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Server error (${res.status})`);
+    }
+    return data as T;
+  }
+
+  // Handle non-JSON HTML error responses (e.g. 404/500 from proxy or static server)
+  const text = await res.text();
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('API server endpoint not found (404). Please verify backend server is running.');
+    }
+    if (res.status === 502 || res.status === 503) {
+      throw new Error('Backend server unavailable. Please try again in a moment.');
+    }
+    throw new Error(text.substring(0, 100) || `Server error (${res.status})`);
+  }
+
+  throw new Error('Unexpected non-JSON response from server.');
+}
+
 export async function registerApi(username: string, password: string, confirmPassword: string): Promise<AuthResponse> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
@@ -22,11 +51,7 @@ export async function registerApi(username: string, password: string, confirmPas
     credentials: 'include',
     body: JSON.stringify({ username, password, confirmPassword }),
   });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Failed to create account.');
-  }
-  return data;
+  return handleResponse<AuthResponse>(res);
 }
 
 export async function loginApi(username: string, password: string): Promise<AuthResponse> {
@@ -36,18 +61,18 @@ export async function loginApi(username: string, password: string): Promise<Auth
     credentials: 'include',
     body: JSON.stringify({ username, password }),
   });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Invalid username or password.');
-  }
-  return data;
+  return handleResponse<AuthResponse>(res);
 }
 
 export async function logoutApi(): Promise<void> {
-  await fetch(`${API_BASE}/auth/logout`, {
-    method: 'POST',
-    credentials: 'include',
-  });
+  try {
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (err) {
+    console.error('Logout error:', err);
+  }
 }
 
 export async function getMeApi(): Promise<User> {
@@ -55,10 +80,7 @@ export async function getMeApi(): Promise<User> {
     method: 'GET',
     credentials: 'include',
   });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Not authenticated');
-  }
+  const data = await handleResponse<{ user: User }>(res);
   return data.user;
 }
 
@@ -73,11 +95,7 @@ export async function changePasswordApi(
     credentials: 'include',
     body: JSON.stringify({ currentPassword, newPassword, confirmNewPassword }),
   });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Failed to change password.');
-  }
-  return data;
+  return handleResponse<{ message: string }>(res);
 }
 
 export async function getAcademicDataApi(): Promise<Record<string, Record<string, number | null>>> {
@@ -85,10 +103,7 @@ export async function getAcademicDataApi(): Promise<Record<string, Record<string
     method: 'GET',
     credentials: 'include',
   });
-  const data: AcademicDataResponse = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Failed to load academic data.');
-  }
+  const data = await handleResponse<AcademicDataResponse>(res);
   return data.marks || {};
 }
 
@@ -101,9 +116,5 @@ export async function saveAcademicDataApi(
     credentials: 'include',
     body: JSON.stringify({ marks }),
   });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Failed to save marks.');
-  }
-  return data;
+  return handleResponse<{ message: string; marks: Record<string, Record<string, number | null>> }>(res);
 }
