@@ -1,17 +1,22 @@
 export type UserRole = 'student' | 'faculty';
 
-export interface StarUser {
+export interface UserProfile {
   id: string;
-  username: string; // e.g. vishnupriya.28b24@kprcas.ac.in
-  name: string; // e.g. Vishnu Priya C
-  registerNo: string; // e.g. 24UDA001
-  role: UserRole;
+  name: string;
+  registerNo: string;
+  username: string;
+  email?: string;
+  role?: UserRole;
   passwordHash?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
+export type StarUser = UserProfile;
+
 export interface AuthResponse {
-  success: boolean;
+  success?: boolean;
+  message?: string;
+  token?: string;
+  user?: UserProfile;
   error?: string;
-  user?: StarUser;
 }

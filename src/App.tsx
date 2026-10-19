@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { INITIAL_CURRICULUM } from './data/curriculum';
 import type { Semester, StudentInfo } from './types/curriculum';
-import type { StarUser } from './types/auth';
+import type { UserProfile } from './types/auth';
 import { calculateSGPA, calculateCGPA } from './utils/calculation';
 import {
-  getCurrentUser,
-  setCurrentUser,
-  logoutUser,
-  getUserAcademicData,
-  saveUserAcademicData,
+  getMeApi,
+  logoutApi,
+  getAcademicDataApi,
+  saveAcademicDataApi,
+} from './services/api';
+import {
+  getCurrentUser as getCachedUser,
+  setCurrentUser as setCachedUser,
+  getUserAcademicData as getCachedAcademicData,
+  saveUserAcademicData as saveCachedAcademicData,
 } from './utils/authStorage';
 
 import { StarFrameworkAuth } from './components/StarFrameworkAuth';
@@ -22,19 +27,54 @@ import { SemesterSummary } from './components/SemesterSummary';
 import { CalculationInfo } from './components/CalculationInfo';
 import { WhatIfCalculator } from './components/WhatIfCalculator';
 import { AcademicResultModal } from './components/AcademicResultModal';
-import { StudentOnboardingModal } from './components/StudentOnboardingModal';
+import { ProfileModal } from './components/ProfileModal';
 import { Footer } from './components/Footer';
 
 export function App() {
-  const [currentUser, setLoggedInUser] = useState<StarUser | null>(() => getCurrentUser());
+  const [currentUser, setCurrentUserState] = useState<UserProfile | null>(() => getCachedUser());
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [semesters, setSemesters] = useState<Semester[]>(INITIAL_CURRICULUM);
   const [activeSemesterNumber, setActiveSemesterNumber] = useState<number>(1);
-  const [studentInfo, setStudentInfo] = useState<StudentInfo>({ name: '', registerNo: '' });
+  const [studentInfo, setStudentInfo] = useState<StudentInfo>({
+    name: currentUser?.name || '',
+    registerNo: currentUser?.registerNo || '',
+  });
   const [isSaved, setIsSaved] = useState<boolean>(true);
   const [isResultModalOpen, setIsResultModalOpen] = useState<boolean>(false);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
 
-  // Load user-isolated state whenever the logged-in user changes
+  // Timer ref for debounced autosave
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Check existing session on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function checkSession() {
+      try {
+        const user = await getMeApi();
+        if (isMounted) {
+          if (user) {
+            setCurrentUserState(user);
+            setCachedUser(user);
+          } else if (!getCachedUser()) {
+            setCurrentUserState(null);
+          }
+        }
+      } catch {
+        // Fall back to cached user if offline
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
+        }
+      }
+    }
+    checkSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Load user-isolated state whenever currentUser changes
   useEffect(() => {
     if (!currentUser) {
       setSemesters(INITIAL_CURRICULUM);
@@ -47,36 +87,76 @@ export function App() {
       registerNo: currentUser.registerNo,
     });
 
-    const userSaved = getUserAcademicData(currentUser.id);
-    if (userSaved && userSaved.marksMap) {
-      setSemesters(
-        INITIAL_CURRICULUM.map((sem) => ({
-          ...sem,
-          subjects: sem.subjects.map((sub) => {
-            const savedMark = userSaved.marksMap[sub.id];
-            const savedInclusion = userSaved.inclusionsMap?.[sub.id];
-            const savedElective = userSaved.electivesMap?.[sub.id];
+    // Fetch student marks from backend database
+    async function loadAcademicMarks() {
+      if (!currentUser) return;
 
-            return {
-              ...sub,
-              marks: savedMark !== undefined ? savedMark : sub.marks,
-              included: savedInclusion !== undefined ? savedInclusion : sub.included,
-              selectedElective: savedElective !== undefined ? savedElective : sub.selectedElective,
-            };
-          }),
-        }))
-      );
-    } else {
-      setSemesters(INITIAL_CURRICULUM);
+      // 1. Check local cache first for instant render
+      const cached = getCachedAcademicData(currentUser.id);
+      if (cached && cached.marksMap) {
+        populateSemestersWithMarks(cached.marksMap, cached.inclusionsMap, cached.electivesMap);
+      }
+
+      // 2. Fetch fresh persistent records from backend
+      try {
+        const remoteData = await getAcademicDataApi();
+        if (remoteData && remoteData.marksMap) {
+          populateSemestersWithMarks(
+            remoteData.marksMap,
+            remoteData.inclusionsMap,
+            remoteData.electivesMap
+          );
+          // Sync local cache
+          saveCachedAcademicData(currentUser.id, {
+            marksMap: remoteData.marksMap,
+            inclusionsMap: remoteData.inclusionsMap,
+            electivesMap: remoteData.electivesMap,
+            studentInfo: {
+              name: currentUser.name,
+              registerNo: currentUser.registerNo,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load remote academic data, using cache:', err);
+      }
     }
-  }, [currentUser]);
 
+    loadAcademicMarks();
+  }, [currentUser?.id]);
+
+  function populateSemestersWithMarks(
+    marksMap: Record<string, number | null>,
+    inclusionsMap?: Record<string, boolean>,
+    electivesMap?: Record<string, string>
+  ) {
+    setSemesters(
+      INITIAL_CURRICULUM.map((sem) => ({
+        ...sem,
+        subjects: sem.subjects.map((sub) => {
+          const savedMark = marksMap[sub.id];
+          const savedInclusion = inclusionsMap?.[sub.id];
+          const savedElective = electivesMap?.[sub.id];
+
+          return {
+            ...sub,
+            marks: savedMark !== undefined ? savedMark : sub.marks,
+            included: savedInclusion !== undefined ? savedInclusion : sub.included,
+            selectedElective: savedElective !== undefined ? savedElective : sub.selectedElective,
+          };
+        }),
+      }))
+    );
+  }
+
+  // Trigger autosave to backend and local storage
   const triggerAutoSave = (
     updatedSemesters: Semester[],
     updatedStudentInfo: StudentInfo,
-    activeUser: StarUser | null
+    activeUser: UserProfile | null
   ) => {
     if (!activeUser) return;
+    setIsSaved(false);
 
     const marksMap: Record<string, number | null> = {};
     const inclusionsMap: Record<string, boolean> = {};
@@ -92,45 +172,64 @@ export function App() {
       });
     });
 
-    saveUserAcademicData(activeUser.id, {
+    // Save locally
+    saveCachedAcademicData(activeUser.id, {
       marksMap,
       inclusionsMap,
       electivesMap,
       studentInfo: updatedStudentInfo,
     });
-    setIsSaved(true);
+
+    // Debounce save to database
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await saveAcademicDataApi({
+          marksMap,
+          inclusionsMap,
+          electivesMap,
+        });
+        setIsSaved(true);
+      } catch (err) {
+        console.error('Failed to sync marks to server database:', err);
+        // Still marked saved locally
+        setIsSaved(true);
+      }
+    }, 600);
   };
 
-  const handleLoginSuccess = (user: StarUser) => {
-    setCurrentUser(user);
-    setLoggedInUser(user);
+  const handleLoginSuccess = (user: UserProfile) => {
+    setCachedUser(user);
+    setCurrentUserState(user);
+    setStudentInfo({
+      name: user.name,
+      registerNo: user.registerNo,
+    });
     confetti({
-      particleCount: 60,
+      particleCount: 70,
       spread: 60,
       origin: { y: 0.6 },
     });
   };
 
-  const handleLogout = () => {
-    logoutUser();
-    setLoggedInUser(null);
+  const handleLogout = async () => {
+    await logoutApi();
+    setCachedUser(null);
+    setCurrentUserState(null);
+    setSemesters(INITIAL_CURRICULUM);
+    setStudentInfo({ name: '', registerNo: '' });
   };
 
-  const handleOnboardingSubmit = (info: StudentInfo) => {
-    setStudentInfo(info);
-    setIsOnboardingOpen(false);
-
-    if (currentUser) {
-      const updatedUser = {
-        ...currentUser,
-        name: info.name,
-        registerNo: info.registerNo,
-      };
-      setCurrentUser(updatedUser);
-      setLoggedInUser(updatedUser);
-      triggerAutoSave(semesters, info, updatedUser);
-    }
-
+  const handleProfileUpdated = (updatedUser: UserProfile) => {
+    setCurrentUserState(updatedUser);
+    setCachedUser(updatedUser);
+    setStudentInfo({
+      name: updatedUser.name,
+      registerNo: updatedUser.registerNo,
+    });
     confetti({
       particleCount: 50,
       spread: 50,
@@ -234,7 +333,19 @@ export function App() {
     setIsSaved(true);
   };
 
-  // If user is not logged in, show the STAR Framework Login / Sign up portal
+  // If initial auth session is being checked, show brief loading screen
+  if (isInitializing && !currentUser) {
+    return (
+      <div className="min-h-screen bg-[#f6f9f6] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-semibold text-slate-600">Loading calculator...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is not logged in, show the Login / Sign Up portal
   if (!currentUser) {
     return <StarFrameworkAuth onLoginSuccess={handleLoginSuccess} />;
   }
@@ -248,14 +359,14 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-emerald-500 selection:text-white">
-      {/* Header Bar with STAR Framework & KPRCAS branding */}
+      {/* Header Bar */}
       <Header
         studentInfo={studentInfo}
         currentUser={currentUser}
         onResetSemester={handleResetSemester}
         onResetAll={handleResetAll}
         onOpenResultModal={() => setIsResultModalOpen(true)}
-        onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        onOpenProfileModal={() => setIsProfileModalOpen(true)}
         onLogout={handleLogout}
         isSaved={isSaved}
       />
@@ -264,11 +375,14 @@ export function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-medium flex items-center justify-between no-print shadow-2xs">
           <span>
-            Welcome, <strong>{studentInfo.name || currentUser.name}</strong> ({currentUser.registerNo})! Enter your semester marks below to calculate your SGPA and CGPA automatically.
+            Welcome, <strong>{studentInfo.name || currentUser.name}</strong> ({studentInfo.registerNo || currentUser.registerNo})! Enter your semester marks below to calculate your SGPA and CGPA automatically.
           </span>
-          <span className="hidden md:inline-block text-xs font-bold text-[#15803d] bg-white px-2.5 py-1 rounded-md border border-emerald-200">
-            Auto-Calculating
-          </span>
+          <button
+            onClick={() => setIsProfileModalOpen(true)}
+            className="text-xs font-bold text-[#15803d] hover:text-[#166534] bg-white px-2.5 py-1 rounded-md border border-emerald-200 hover:bg-emerald-50 transition cursor-pointer"
+          >
+            My Profile
+          </button>
         </div>
 
         <Dashboard
@@ -310,11 +424,12 @@ export function App() {
 
       <Footer />
 
-      {/* Edit Student Details Modal */}
-      <StudentOnboardingModal
-        isOpen={isOnboardingOpen}
-        onSubmit={handleOnboardingSubmit}
-        initialInfo={studentInfo}
+      {/* Profile & Password Management Modal */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={currentUser}
+        onProfileUpdated={handleProfileUpdated}
       />
 
       {/* Official Academic Result Transcript Modal */}

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import type { StarUser } from '../types/auth';
-import { loginUser, registerUser } from '../utils/authStorage';
-import { Eye, EyeOff, Calculator, Award } from 'lucide-react';
+import type { UserProfile } from '../types/auth';
+import { loginApi, registerApi } from '../services/api';
+import { Eye, EyeOff, Calculator, Award, Loader2 } from 'lucide-react';
 
 interface StarFrameworkAuthProps {
-  onLoginSuccess: (user: StarUser) => void;
+  onLoginSuccess: (user: UserProfile) => void;
 }
 
 export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuccess }) => {
@@ -21,14 +21,19 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
 
   // Status & error states
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (isSignUp) {
       if (!name.trim()) {
         setError('Please enter your full name');
+        return;
+      }
+      if (!registerNo.trim()) {
+        setError('Please enter your Roll Number / Register Number');
         return;
       }
       if (!username.trim()) {
@@ -39,43 +44,62 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
         setError('Please enter a password');
         return;
       }
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long');
+        return;
+      }
       if (password !== confirmPassword) {
         setError('Passwords do not match');
         return;
       }
 
-      const res = registerUser({
-        username,
-        name,
-        registerNo: registerNo || '24UDA001',
-        role: 'student',
-        password,
-      });
+      try {
+        setIsLoading(true);
+        const res = await registerApi({
+          name: name.trim(),
+          registerNo: registerNo.trim(),
+          username: username.trim(),
+          password,
+          confirmPassword,
+        });
 
-      if (!res.success || !res.user) {
-        setError(res.error || 'Failed to create account');
-        return;
+        if (res.user) {
+          onLoginSuccess(res.user);
+        } else {
+          setError(res.error || 'Failed to create account');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to create account. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
-
-      onLoginSuccess(res.user);
     } else {
       if (!username.trim()) {
-        setError('Invalid username or password');
+        setError('Please enter your username or register number');
+        return;
+      }
+      if (!password) {
+        setError('Please enter your password');
         return;
       }
 
-      const res = loginUser({
-        username,
-        password,
-        role: 'student',
-      });
+      try {
+        setIsLoading(true);
+        const res = await loginApi({
+          username: username.trim(),
+          password,
+        });
 
-      if (!res.success || !res.user) {
-        setError(res.error || 'Invalid username or password');
-        return;
+        if (res.user) {
+          onLoginSuccess(res.user);
+        } else {
+          setError(res.error || 'Invalid credentials');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Invalid username or password');
+      } finally {
+        setIsLoading(false);
       }
-
-      onLoginSuccess(res.user);
     }
   };
 
@@ -99,7 +123,7 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
             </div>
 
             <p className="text-xs sm:text-sm text-slate-500 max-w-xs leading-relaxed">
-              Instant semester SGPA and cumulative CGPA calculation with pre-configured credit-weighted curriculum.
+              Instant semester SGPA and cumulative CGPA calculation with secure personal student profile and persistent marks.
             </p>
           </div>
 
@@ -116,7 +140,7 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
               </p>
             </div>
 
-            {/* Error Banner matching the styling */}
+            {/* Error Banner */}
             {error && (
               <div className="mb-5 bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] rounded-lg p-3 text-center text-xs sm:text-sm font-medium animate-fade-in">
                 {error}
@@ -143,14 +167,15 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
 
                   <div>
                     <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">
-                      Roll Number / Register No
+                      Roll Number / Register No *
                     </label>
                     <input
                       type="text"
+                      required
                       placeholder="e.g. 24UDA001"
                       value={registerNo}
                       onChange={(e) => setRegisterNo(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] text-slate-900 text-sm transition"
+                      className="w-full px-3.5 py-2.5 uppercase rounded-lg border border-slate-300 focus:outline-hidden focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] text-slate-900 text-sm transition"
                     />
                   </div>
                 </>
@@ -159,12 +184,12 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
               {/* Username Input */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">
-                  Username
+                  Username or Email *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Enter your username or email"
+                  placeholder={isSignUp ? "Create a unique username or email" : "Enter username or roll number"}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] text-slate-900 text-sm transition"
@@ -174,7 +199,7 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
               {/* Password Input */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">
-                  Password
+                  Password *
                 </label>
                 <div className="relative">
                   <input
@@ -203,7 +228,7 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
               {isSignUp && (
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1">
-                    Confirm Password
+                    Confirm Password *
                   </label>
                   <div className="relative">
                     <input
@@ -232,9 +257,17 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full mt-2 py-3 px-4 bg-[#1e7e34] hover:bg-[#15803d] text-white font-bold text-sm sm:text-base rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                disabled={isLoading}
+                className="w-full mt-2 py-3 px-4 bg-[#1e7e34] hover:bg-[#15803d] disabled:opacity-60 text-white font-bold text-sm sm:text-base rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>{isSignUp ? 'Create Account' : 'Log In'}</span>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <span>{isSignUp ? 'Create Account' : 'Log In'}</span>
+                )}
               </button>
             </form>
 
