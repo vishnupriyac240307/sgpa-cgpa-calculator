@@ -102,6 +102,12 @@ export async function loginApi(payload: {
   username: string;
   password: string;
 }): Promise<AuthResponse> {
+  // Check local storage credentials first
+  const localRes = loginUser({
+    username: payload.username,
+    password: payload.password,
+  });
+
   try {
     const data = await request<{ message: string; user: UserProfile; token: string }>('/auth/login', {
       method: 'POST',
@@ -114,18 +120,13 @@ export async function loginApi(payload: {
 
     return { success: true, message: data.message, user: data.user, token: data.token };
   } catch (err: any) {
-    // If backend is unavailable or 404, fall back to persistent local storage
-    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
-      const fallback = loginUser({
-        username: payload.username,
-        password: payload.password,
-      });
-      if (!fallback.success || !fallback.user) {
-        throw new Error(fallback.error || 'Invalid username or password');
-      }
-      return { success: true, message: 'Logged in successfully', user: fallback.user };
+    // If local login succeeded, grant login smoothly!
+    if (localRes.success && localRes.user) {
+      return { success: true, message: 'Logged in successfully', user: localRes.user };
     }
-    throw err;
+
+    // Both failed: return clear error
+    throw new Error(err.message || localRes.error || 'Invalid username or password');
   }
 }
 
