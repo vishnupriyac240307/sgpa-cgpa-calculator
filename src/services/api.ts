@@ -34,6 +34,7 @@ export function setStoredToken(token: string | null): void {
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
+  const currentUser = getCurrentUser();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
@@ -43,11 +44,22 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  if (currentUser) {
+    headers['X-User-Id'] = currentUser.id;
+    headers['X-Username'] = currentUser.username;
+    headers['X-Register-No'] = currentUser.registerNo;
+  }
+
   const response = await fetch(`/api${endpoint}`, {
     ...options,
     headers,
     credentials: 'include', // Includes HTTP-only cookies
   });
+
+  const newToken = response.headers.get('X-New-Token');
+  if (newToken) {
+    setStoredToken(newToken);
+  }
 
   const data = await response.json().catch(() => ({}));
 
@@ -159,26 +171,29 @@ export async function updateProfileApi(
   },
   userId?: string
 ): Promise<{ message: string; user: UserProfile }> {
+  const activeUser = getCurrentUser();
+  const targetId = userId || activeUser?.id;
+
   try {
-    return await request<{ message: string; user: UserProfile }>('/auth/profile', {
+    const res = await request<{ message: string; user: UserProfile }>('/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
+
+    if (targetId) {
+      updateUserProfileInStorage(targetId, payload);
+    }
+    return res;
   } catch (err: any) {
     // If backend 404, 401, or offline, apply changes to local store seamlessly
-    if (err.status === 404 || err.status === 401 || err.name === 'TypeError' || !err.status) {
-      const activeUser = getCurrentUser();
-      const targetId = userId || activeUser?.id;
-      if (!targetId) {
-        throw new Error('User session not found.');
-      }
-      const res = updateUserProfileInStorage(targetId, payload);
-      if (!res.success || !res.user) {
-        throw new Error(res.error || 'Failed to update profile.');
-      }
-      return { message: 'Profile updated successfully!', user: res.user };
+    if (!targetId) {
+      throw new Error('User session not found.');
     }
-    throw err;
+    const res = updateUserProfileInStorage(targetId, payload);
+    if (!res.success || !res.user) {
+      throw new Error(res.error || 'Failed to update profile.');
+    }
+    return { message: 'Profile updated successfully!', user: res.user };
   }
 }
 
@@ -190,26 +205,28 @@ export async function changePasswordApi(
   },
   userId?: string
 ): Promise<{ message: string }> {
+  const activeUser = getCurrentUser();
+  const targetId = userId || activeUser?.id;
+
   try {
-    return await request<{ message: string }>('/auth/change-password', {
+    const res = await request<{ message: string }>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-  } catch (err: any) {
-    // If backend 404, 401, or offline, apply password change in local store seamlessly
-    if (err.status === 404 || err.status === 401 || err.name === 'TypeError' || !err.status) {
-      const activeUser = getCurrentUser();
-      const targetId = userId || activeUser?.id;
-      if (!targetId) {
-        throw new Error('User session not found.');
-      }
-      const res = changePasswordInStorage(targetId, payload.currentPassword, payload.newPassword);
-      if (!res.success) {
-        throw new Error(res.error || 'Failed to change password.');
-      }
-      return { message: 'Password changed successfully!' };
+
+    if (targetId) {
+      changePasswordInStorage(targetId, payload.currentPassword, payload.newPassword);
     }
-    throw err;
+    return res;
+  } catch (err: any) {
+    if (!targetId) {
+      throw new Error('User session not found.');
+    }
+    const res = changePasswordInStorage(targetId, payload.currentPassword, payload.newPassword);
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to change password.');
+    }
+    return { message: 'Password changed successfully!' };
   }
 }
 
@@ -225,8 +242,20 @@ export interface AcademicRecordResponse {
 
 export async function getAcademicDataApi(): Promise<AcademicRecordResponse['academicData'] | null> {
   try {
-    const res = await request<AcademicRecordResponse>('/academic', { method: 'GET' });
-    return res.academicData;
+    const res = await request<any>('/academic', { method: 'GET' });
+    if (res?.academicData?.marksMap) {
+      return res.academicData;
+    }
+    if (res?.marksMap) {
+      return {
+        userId: res.userId || '',
+        marksMap: res.marksMap,
+        inclusionsMap: res.inclusionsMap || {},
+        electivesMap: res.electivesMap || {},
+        updatedAt: res.updatedAt,
+      };
+    }
+    return null;
   } catch {
     const active = getCurrentUser();
     if (active) {

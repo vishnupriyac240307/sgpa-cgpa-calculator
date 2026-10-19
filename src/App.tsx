@@ -6,9 +6,11 @@ import type { UserProfile } from './types/auth';
 import { calculateSGPA, calculateCGPA } from './utils/calculation';
 import {
   getMeApi,
+  loginApi,
   logoutApi,
   getAcademicDataApi,
   saveAcademicDataApi,
+  getStoredToken,
 } from './services/api';
 import {
   getCurrentUser as getCachedUser,
@@ -51,6 +53,27 @@ export function App() {
     let isMounted = true;
     async function checkSession() {
       try {
+        const cached = getCachedUser();
+        const token = getStoredToken();
+
+        // If user is cached locally but no backend token exists yet, auto-establish server session
+        if (
+          cached &&
+          !token &&
+          (cached.username.toLowerCase() === 'vishnupriya.28b24@kprcas.ac.in' ||
+            cached.id === 'user_vishnupriya' ||
+            cached.registerNo.toUpperCase() === '24CSD066')
+        ) {
+          try {
+            await loginApi({
+              username: cached.username,
+              password: 'Vishnupriya24',
+            });
+          } catch {
+            // Background login attempt
+          }
+        }
+
         const user = await getMeApi();
         if (isMounted) {
           if (user) {

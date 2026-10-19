@@ -21,6 +21,13 @@ export async function getAcademicData(req: AuthRequest, res: Response): Promise<
     }
 
     res.json({
+      academicData: {
+        userId,
+        marksMap: academicData.marksMap || {},
+        inclusionsMap: academicData.inclusionsMap || {},
+        electivesMap: academicData.electivesMap || {},
+        updatedAt: academicData.updatedAt,
+      },
       marksMap: academicData.marksMap || {},
       inclusionsMap: academicData.inclusionsMap || {},
       electivesMap: academicData.electivesMap || {},

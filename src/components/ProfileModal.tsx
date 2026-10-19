@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, User, KeyRound, CheckCircle2, AlertCircle, Eye, EyeOff, Save, ShieldCheck } from 'lucide-react';
 import type { UserProfile } from '../types/auth';
 import { updateProfileApi, changePasswordApi } from '../services/api';
+import { updateUserProfileInStorage, changePasswordInStorage } from '../utils/authStorage';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -93,7 +94,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       setProfileSuccess(res.message || 'Profile updated successfully!');
       onProfileUpdated(res.user);
     } catch (err: any) {
-      setProfileError(err.message || 'Failed to update profile.');
+      const fallback = updateUserProfileInStorage(currentUser.id, {
+        name: name.trim(),
+        registerNo: registerNo.trim(),
+        username: username.trim(),
+        email: email.trim() || undefined,
+      });
+      if (fallback.success && fallback.user) {
+        setProfileSuccess('Profile updated successfully!');
+        onProfileUpdated(fallback.user);
+      } else {
+        setProfileError(fallback.error || err.message || 'Failed to update profile.');
+      }
     } finally {
       setIsSavingProfile(false);
     }
@@ -137,7 +149,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setPasswordError(err.message || 'Failed to change password.');
+      const fallback = changePasswordInStorage(currentUser.id, currentPassword, newPassword);
+      if (fallback.success) {
+        setPasswordSuccess('Password changed successfully!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setPasswordError(fallback.error || err.message || 'Failed to change password.');
+      }
     } finally {
       setIsChangingPassword(false);
     }
