@@ -13,7 +13,7 @@
     "dev:server": "tsx watch server/server.ts",
     "dev:client": "vite",
     "start": "node --import tsx server/server.ts",
-    "build": "vite build",
+    "build": "npm install && vite build",
     "test": "vitest run",
     "lint": "oxlint",
     "preview": "vite preview"
