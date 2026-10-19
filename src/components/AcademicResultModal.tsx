@@ -103,14 +103,14 @@ export const AcademicResultModal: React.FC<AcademicResultModalProps> = ({
           {/* Header Info */}
           <div className="border-b-2 border-slate-900 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 text-blue-800 font-bold text-xs uppercase tracking-widest">
-                <School className="w-4 h-4" /> Degree Transcript Report
+              <div className="flex items-center gap-2 text-[#15803d] font-black text-xs uppercase tracking-widest">
+                <School className="w-4 h-4 text-[#15803d]" /> STAR FRAMEWORK &bull; KPRCAS
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1">
-                B.Sc. Computer Science with Data Analytics
+                KPR College of Arts Science and Research
               </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                6-Semester Degree Credit-Weighted Assessment
+              <p className="text-xs text-slate-600 font-medium mt-0.5">
+                B.Sc. Computer Science with Data Analytics &bull; 6-Semester Degree Credit-Weighted Assessment
               </p>
             </div>
 
