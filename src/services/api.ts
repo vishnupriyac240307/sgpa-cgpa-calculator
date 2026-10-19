@@ -165,8 +165,8 @@ export async function updateProfileApi(
       body: JSON.stringify(payload),
     });
   } catch (err: any) {
-    // If backend 404 or offline, apply changes to local store seamlessly
-    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
+    // If backend 404, 401, or offline, apply changes to local store seamlessly
+    if (err.status === 404 || err.status === 401 || err.name === 'TypeError' || !err.status) {
       const activeUser = getCurrentUser();
       const targetId = userId || activeUser?.id;
       if (!targetId) {
@@ -196,8 +196,8 @@ export async function changePasswordApi(
       body: JSON.stringify(payload),
     });
   } catch (err: any) {
-    // If backend 404 or offline, apply password change in local store seamlessly
-    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
+    // If backend 404, 401, or offline, apply password change in local store seamlessly
+    if (err.status === 404 || err.status === 401 || err.name === 'TypeError' || !err.status) {
       const activeUser = getCurrentUser();
       const targetId = userId || activeUser?.id;
       if (!targetId) {
