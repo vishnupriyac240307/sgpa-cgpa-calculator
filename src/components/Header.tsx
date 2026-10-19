@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                  SGPA & CGPA Calculator
+                  CSDA SGPA & CGPA Calculator
                 </h1>
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#15803d] border border-emerald-200">
                   <Award className="w-3 h-3" /> B.Sc. CS & Data Analytics

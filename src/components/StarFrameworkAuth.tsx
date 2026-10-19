@@ -114,7 +114,7 @@ export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuc
             </div>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-wide text-[#15803d] leading-tight mb-4">
-              SGPA AND CGPA CALCULATOR
+              CSDA SGPA AND CGPA CALCULATOR
             </h1>
 
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-[#15803d] border border-emerald-200 mb-6">
