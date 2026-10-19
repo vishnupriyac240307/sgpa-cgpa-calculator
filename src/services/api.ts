@@ -1,9 +1,12 @@
 import type { UserProfile, AuthResponse } from '../types/auth';
 import {
   getCurrentUser,
+  setCurrentUser,
   registerUser,
   loginUser,
   logoutUser,
+  saveOrUpdateUser,
+  simpleHash,
   updateUserProfileInStorage,
   changePasswordInStorage,
   getUserAcademicData,
@@ -81,6 +84,14 @@ export async function registerApi(payload: {
   confirmPassword?: string;
   email?: string;
 }): Promise<AuthResponse> {
+  // 1. Always record in local storage immediately so credentials exist across all sessions
+  const localRes = registerUser({
+    name: payload.name,
+    registerNo: payload.registerNo,
+    username: payload.username,
+    password: payload.password,
+  });
+
   try {
     const data = await request<{ message: string; user: UserProfile; token: string }>('/auth/register', {
       method: 'POST',
@@ -91,20 +102,38 @@ export async function registerApi(payload: {
       setStoredToken(data.token);
     }
 
-    return { success: true, message: data.message, user: data.user, token: data.token };
-  } catch (err: any) {
-    // If backend is unavailable or 404, fall back to persistent local storage
-    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
-      const fallback = registerUser({
-        name: payload.name,
-        registerNo: payload.registerNo,
-        username: payload.username,
-        password: payload.password,
+    if (data.user) {
+      saveOrUpdateUser({
+        id: data.user.id,
+        name: data.user.name,
+        registerNo: data.user.registerNo,
+        username: data.user.username,
+        email: data.user.email,
+        role: 'student',
+        passwordHash: simpleHash(payload.password),
+        createdAt: data.user.createdAt || new Date().toISOString(),
       });
-      if (!fallback.success || !fallback.user) {
-        throw new Error(fallback.error || 'Failed to register account');
-      }
-      return { success: true, message: 'Account created successfully', user: fallback.user };
+      setCurrentUser({
+        id: data.user.id,
+        name: data.user.name,
+        registerNo: data.user.registerNo,
+        username: data.user.username,
+        email: data.user.email,
+        role: 'student',
+        passwordHash: simpleHash(payload.password),
+        createdAt: data.user.createdAt || new Date().toISOString(),
+      });
+    }
+
+    return {
+      success: true,
+      message: data.message,
+      user: data.user || localRes.user,
+      token: data.token,
+    };
+  } catch (err: any) {
+    if (localRes.success && localRes.user) {
+      return { success: true, message: 'Account created successfully', user: localRes.user };
     }
     throw err;
   }
@@ -114,7 +143,7 @@ export async function loginApi(payload: {
   username: string;
   password: string;
 }): Promise<AuthResponse> {
-  // Check local storage credentials first
+  // Check local storage credentials
   const localRes = loginUser({
     username: payload.username,
     password: payload.password,
@@ -130,10 +159,53 @@ export async function loginApi(payload: {
       setStoredToken(data.token);
     }
 
+    if (data.user) {
+      saveOrUpdateUser({
+        id: data.user.id,
+        name: data.user.name,
+        registerNo: data.user.registerNo,
+        username: data.user.username,
+        email: data.user.email,
+        role: 'student',
+        passwordHash: simpleHash(payload.password),
+        createdAt: data.user.createdAt || new Date().toISOString(),
+      });
+      setCurrentUser({
+        id: data.user.id,
+        name: data.user.name,
+        registerNo: data.user.registerNo,
+        username: data.user.username,
+        email: data.user.email,
+        role: 'student',
+        passwordHash: simpleHash(payload.password),
+        createdAt: data.user.createdAt || new Date().toISOString(),
+      });
+    }
+
     return { success: true, message: data.message, user: data.user, token: data.token };
   } catch (err: any) {
-    // If local login succeeded, grant login smoothly!
+    // If backend failed (or didn't have user yet) but local store has valid credentials:
     if (localRes.success && localRes.user) {
+      // Auto-register to backend so backend learns this account!
+      try {
+        const regRes = await request<{ message: string; user: UserProfile; token: string }>('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: localRes.user.name,
+            registerNo: localRes.user.registerNo,
+            username: localRes.user.username,
+            password: payload.password,
+            confirmPassword: payload.password,
+            email: localRes.user.email,
+          }),
+        });
+        if (regRes.token) {
+          setStoredToken(regRes.token);
+        }
+      } catch {
+        // Backend could be starting up, local login is still valid
+      }
+
       return { success: true, message: 'Logged in successfully', user: localRes.user };
     }
 

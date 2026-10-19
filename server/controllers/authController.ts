@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import type { AuthRequest } from '../middleware/auth';
+import { saveUserToFile, loadUsersFromFile } from '../services/fileStore';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'csda_sgpa_cgpa_calculator_jwt_secret_2026';
 
@@ -80,6 +81,16 @@ export async function register(req: AuthRequest, res: Response): Promise<void> {
       passwordHash,
     });
 
+    saveUserToFile({
+      id: newUser._id.toString(),
+      name: newUser.name,
+      registerNo: newUser.registerNo,
+      username: newUser.username,
+      email: newUser.email,
+      passwordHash,
+      createdAt: newUser.createdAt.toISOString(),
+    });
+
     const token = generateToken(newUser._id.toString(), newUser.username, newUser.registerNo);
     setTokenCookie(res, token);
 
@@ -143,6 +154,30 @@ export async function login(req: AuthRequest, res: Response): Promise<void> {
           : []),
       ],
     });
+
+    if (!user) {
+      const diskUsers = loadUsersFromFile();
+      const diskUser = diskUsers.find(
+        (u) =>
+          u.username.toLowerCase() === normalized ||
+          (u.email && u.email.toLowerCase() === normalized) ||
+          u.registerNo.toUpperCase() === normalizedReg
+      );
+
+      if (diskUser) {
+        try {
+          user = await User.create({
+            name: diskUser.name,
+            registerNo: diskUser.registerNo.toUpperCase(),
+            username: diskUser.username.toLowerCase(),
+            email: diskUser.email ? diskUser.email.toLowerCase() : undefined,
+            passwordHash: diskUser.passwordHash,
+          });
+        } catch {
+          user = await User.findOne({ username: diskUser.username.toLowerCase() });
+        }
+      }
+    }
 
     if (!user) {
       if (
@@ -300,6 +335,16 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
     user.email = email ? email.trim().toLowerCase() : undefined;
     await user.save();
 
+    saveUserToFile({
+      id: user._id.toString(),
+      name: user.name,
+      registerNo: user.registerNo,
+      username: user.username,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      createdAt: user.createdAt.toISOString(),
+    });
+
     res.json({
       message: 'Profile updated successfully.',
       user: {
@@ -350,6 +395,16 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
+
+    saveUserToFile({
+      id: user._id.toString(),
+      name: user.name,
+      registerNo: user.registerNo,
+      username: user.username,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      createdAt: user.createdAt.toISOString(),
+    });
 
     res.json({ message: 'Password updated successfully.' });
   } catch (err: any) {

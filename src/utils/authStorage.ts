@@ -7,7 +7,7 @@ const CURRENT_USER_KEY = 'star_framework_current_user_v1';
 const USER_DATA_PREFIX = 'star_framework_user_data_';
 
 // Simple hash simulation for safe client-side credential verification
-function simpleHash(str: string): string {
+export function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -15,6 +15,28 @@ function simpleHash(str: string): string {
     hash |= 0;
   }
   return 'sf_' + Math.abs(hash).toString(36);
+}
+
+export function saveOrUpdateUser(user: StarUser): void {
+  try {
+    const users = getAllUsers();
+    const index = users.findIndex(
+      (u) =>
+        u.id === user.id ||
+        u.username.toLowerCase() === user.username.toLowerCase() ||
+        u.registerNo.toUpperCase() === user.registerNo.toUpperCase()
+    );
+
+    if (index >= 0) {
+      users[index] = { ...users[index], ...user };
+    } else {
+      users.push(user);
+    }
+
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  } catch (err) {
+    console.error('Failed to save or update user in storage:', err);
+  }
 }
 
 export function isVishnuPriyaIdentifier(identifier: string): boolean {

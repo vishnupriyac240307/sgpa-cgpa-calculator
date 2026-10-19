@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import { AcademicData } from '../models/AcademicData';
 import type { AuthRequest } from '../middleware/auth';
+import { saveAcademicToFile, loadAcademicFromFile } from '../services/fileStore';
 
 export async function getAcademicData(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -12,12 +13,23 @@ export async function getAcademicData(req: AuthRequest, res: Response): Promise<
 
     let academicData = await AcademicData.findOne({ userId });
     if (!academicData) {
-      academicData = await AcademicData.create({
-        userId,
-        marksMap: {},
-        inclusionsMap: {},
-        electivesMap: {},
-      });
+      const diskList = loadAcademicFromFile();
+      const diskRecord = diskList.find((a) => a.userId === userId);
+      if (diskRecord) {
+        academicData = await AcademicData.create({
+          userId,
+          marksMap: diskRecord.marksMap || {},
+          inclusionsMap: diskRecord.inclusionsMap || {},
+          electivesMap: diskRecord.electivesMap || {},
+        });
+      } else {
+        academicData = await AcademicData.create({
+          userId,
+          marksMap: {},
+          inclusionsMap: {},
+          electivesMap: {},
+        });
+      }
     }
 
     res.json({
@@ -54,6 +66,13 @@ export async function saveAcademicData(req: AuthRequest, res: Response): Promise
       { marksMap, inclusionsMap, electivesMap },
       { returnDocument: 'after', upsert: true, runValidators: true }
     );
+
+    saveAcademicToFile({
+      userId,
+      marksMap: academicData.marksMap,
+      inclusionsMap: academicData.inclusionsMap,
+      electivesMap: academicData.electivesMap,
+    });
 
     res.json({
       message: 'Marks saved successfully.',
