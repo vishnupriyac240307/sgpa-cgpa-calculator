@@ -80,12 +80,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
     try {
       setIsSavingProfile(true);
-      const res = await updateProfileApi({
-        name: name.trim(),
-        registerNo: registerNo.trim(),
-        username: username.trim(),
-        email: email.trim() || undefined,
-      });
+      const res = await updateProfileApi(
+        {
+          name: name.trim(),
+          registerNo: registerNo.trim(),
+          username: username.trim(),
+          email: email.trim() || undefined,
+        },
+        currentUser.id
+      );
 
       setProfileSuccess(res.message || 'Profile updated successfully!');
       onProfileUpdated(res.user);
@@ -120,11 +123,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
     try {
       setIsChangingPassword(true);
-      const res = await changePasswordApi({
-        currentPassword,
-        newPassword,
-        confirmPassword,
-      });
+      const res = await changePasswordApi(
+        {
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        },
+        currentUser.id
+      );
 
       setPasswordSuccess(res.message || 'Password changed successfully!');
       setCurrentPassword('');

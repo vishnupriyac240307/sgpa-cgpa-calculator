@@ -1,4 +1,14 @@
 import type { UserProfile, AuthResponse } from '../types/auth';
+import {
+  getCurrentUser,
+  registerUser,
+  loginUser,
+  logoutUser,
+  updateUserProfileInStorage,
+  changePasswordInStorage,
+  getUserAcademicData,
+  saveUserAcademicData,
+} from '../utils/authStorage';
 
 const TOKEN_KEY = 'csda_calculator_jwt_token';
 
@@ -43,7 +53,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!response.ok) {
     const errorMsg = data.error || data.message || `Request failed with status ${response.status}`;
-    throw new Error(errorMsg);
+    const err = new Error(errorMsg) as any;
+    err.status = response.status;
+    throw err;
   }
 
   return data as T;
@@ -57,32 +69,64 @@ export async function registerApi(payload: {
   confirmPassword?: string;
   email?: string;
 }): Promise<AuthResponse> {
-  const data = await request<{ message: string; user: UserProfile; token: string }>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  try {
+    const data = await request<{ message: string; user: UserProfile; token: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
 
-  if (data.token) {
-    setStoredToken(data.token);
+    if (data.token) {
+      setStoredToken(data.token);
+    }
+
+    return { success: true, message: data.message, user: data.user, token: data.token };
+  } catch (err: any) {
+    // If backend is unavailable or 404, fall back to persistent local storage
+    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
+      const fallback = registerUser({
+        name: payload.name,
+        registerNo: payload.registerNo,
+        username: payload.username,
+        password: payload.password,
+      });
+      if (!fallback.success || !fallback.user) {
+        throw new Error(fallback.error || 'Failed to register account');
+      }
+      return { success: true, message: 'Account created successfully', user: fallback.user };
+    }
+    throw err;
   }
-
-  return { success: true, message: data.message, user: data.user, token: data.token };
 }
 
 export async function loginApi(payload: {
   username: string;
   password: string;
 }): Promise<AuthResponse> {
-  const data = await request<{ message: string; user: UserProfile; token: string }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  try {
+    const data = await request<{ message: string; user: UserProfile; token: string }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
 
-  if (data.token) {
-    setStoredToken(data.token);
+    if (data.token) {
+      setStoredToken(data.token);
+    }
+
+    return { success: true, message: data.message, user: data.user, token: data.token };
+  } catch (err: any) {
+    // If backend is unavailable or 404, fall back to persistent local storage
+    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
+      const fallback = loginUser({
+        username: payload.username,
+        password: payload.password,
+      });
+      if (!fallback.success || !fallback.user) {
+        throw new Error(fallback.error || 'Invalid username or password');
+      }
+      return { success: true, message: 'Logged in successfully', user: fallback.user };
+    }
+    throw err;
   }
-
-  return { success: true, message: data.message, user: data.user, token: data.token };
 }
 
 export async function logoutApi(): Promise<void> {
@@ -92,6 +136,7 @@ export async function logoutApi(): Promise<void> {
     // Ignore logout network errors
   } finally {
     setStoredToken(null);
+    logoutUser();
   }
 }
 
@@ -100,31 +145,71 @@ export async function getMeApi(): Promise<UserProfile | null> {
     const data = await request<{ user: UserProfile }>('/auth/me', { method: 'GET' });
     return data.user || null;
   } catch {
-    return null;
+    return getCurrentUser();
   }
 }
 
-export async function updateProfileApi(payload: {
-  name?: string;
-  registerNo?: string;
-  username?: string;
-  email?: string;
-}): Promise<{ message: string; user: UserProfile }> {
-  return request<{ message: string; user: UserProfile }>('/auth/profile', {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
+export async function updateProfileApi(
+  payload: {
+    name?: string;
+    registerNo?: string;
+    username?: string;
+    email?: string;
+  },
+  userId?: string
+): Promise<{ message: string; user: UserProfile }> {
+  try {
+    return await request<{ message: string; user: UserProfile }>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  } catch (err: any) {
+    // If backend 404 or offline, apply changes to local store seamlessly
+    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
+      const activeUser = getCurrentUser();
+      const targetId = userId || activeUser?.id;
+      if (!targetId) {
+        throw new Error('User session not found.');
+      }
+      const res = updateUserProfileInStorage(targetId, payload);
+      if (!res.success || !res.user) {
+        throw new Error(res.error || 'Failed to update profile.');
+      }
+      return { message: 'Profile updated successfully!', user: res.user };
+    }
+    throw err;
+  }
 }
 
-export async function changePasswordApi(payload: {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword?: string;
-}): Promise<{ message: string }> {
-  return request<{ message: string }>('/auth/change-password', {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
+export async function changePasswordApi(
+  payload: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword?: string;
+  },
+  userId?: string
+): Promise<{ message: string }> {
+  try {
+    return await request<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  } catch (err: any) {
+    // If backend 404 or offline, apply password change in local store seamlessly
+    if (err.status === 404 || err.name === 'TypeError' || !err.status) {
+      const activeUser = getCurrentUser();
+      const targetId = userId || activeUser?.id;
+      if (!targetId) {
+        throw new Error('User session not found.');
+      }
+      const res = changePasswordInStorage(targetId, payload.currentPassword, payload.newPassword);
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to change password.');
+      }
+      return { message: 'Password changed successfully!' };
+    }
+    throw err;
+  }
 }
 
 export interface AcademicRecordResponse {
@@ -141,8 +226,19 @@ export async function getAcademicDataApi(): Promise<AcademicRecordResponse['acad
   try {
     const res = await request<AcademicRecordResponse>('/academic', { method: 'GET' });
     return res.academicData;
-  } catch (err) {
-    console.warn('Could not fetch remote academic data:', err);
+  } catch {
+    const active = getCurrentUser();
+    if (active) {
+      const saved = getUserAcademicData(active.id);
+      if (saved) {
+        return {
+          userId: active.id,
+          marksMap: saved.marksMap || {},
+          inclusionsMap: saved.inclusionsMap || {},
+          electivesMap: saved.electivesMap || {},
+        };
+      }
+    }
     return null;
   }
 }
@@ -152,8 +248,23 @@ export async function saveAcademicDataApi(payload: {
   inclusionsMap: Record<string, boolean>;
   electivesMap: Record<string, string>;
 }): Promise<void> {
-  await request('/academic', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  try {
+    await request('/academic', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    const active = getCurrentUser();
+    if (active) {
+      saveUserAcademicData(active.id, {
+        marksMap: payload.marksMap,
+        inclusionsMap: payload.inclusionsMap,
+        electivesMap: payload.electivesMap,
+        studentInfo: {
+          name: active.name,
+          registerNo: active.registerNo,
+        },
+      });
+    }
+  }
 }
