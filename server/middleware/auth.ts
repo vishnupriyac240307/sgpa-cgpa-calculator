@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User';
-import { generateToken, setTokenCookie } from '../controllers/authController';
+import { generateToken, setTokenCookie, isVishnuPriyaIdentifier } from '../controllers/authController';
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -53,18 +53,28 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
       if (registerNoHeader) query.push({ registerNo: registerNoHeader.trim().toUpperCase() });
       if (userIdHeader && userIdHeader.match(/^[0-9a-fA-F]{24}$/)) query.push({ _id: userIdHeader });
 
+      if (usernameHeader && isVishnuPriyaIdentifier(usernameHeader)) {
+        query.push(
+          { username: 'vishnupriya.c.2403@gmail.com' },
+          { email: 'vishnupriya.c.2403@gmail.com' },
+          { username: 'vishnupriya.28b24@kprcas.ac.in' },
+          { registerNo: '24CSD066' },
+          { registerNo: '24UDA001' }
+        );
+      }
+
       let user = query.length > 0 ? await User.findOne({ $or: query }) : null;
 
       if (!user && (
-        usernameHeader?.toLowerCase().includes('vishnupriya') ||
-        registerNoHeader?.toUpperCase().includes('24UDA') ||
-        registerNoHeader?.toUpperCase().includes('24CSD')
+        (usernameHeader && isVishnuPriyaIdentifier(usernameHeader)) ||
+        (registerNoHeader && isVishnuPriyaIdentifier(registerNoHeader))
       )) {
         const passwordHash = await bcrypt.hash('Vishnupriya24', 10);
         user = await User.create({
           name: 'Vishnu Priya C',
           registerNo: registerNoHeader?.trim().toUpperCase() || '24CSD066',
-          username: usernameHeader?.trim().toLowerCase() || 'vishnupriya.28b24@kprcas.ac.in',
+          username: usernameHeader?.trim().toLowerCase() || 'vishnupriya.c.2403@gmail.com',
+          email: 'vishnupriya.c.2403@gmail.com',
           passwordHash,
         });
       }

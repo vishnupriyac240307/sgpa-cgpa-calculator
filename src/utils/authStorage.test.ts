@@ -9,6 +9,7 @@ import {
   logoutUser,
   saveUserAcademicData,
   getUserAcademicData,
+  isVishnuPriyaIdentifier,
 } from './authStorage';
 
 const mockStore: Record<string, string> = {};
@@ -39,24 +40,30 @@ describe('STAR Framework Auth & User Isolation Tests', () => {
   it('initializes default student account', () => {
     const users = getAllUsers();
     expect(users.length).toBeGreaterThanOrEqual(1);
-    expect(users[0].username).toBe('vishnupriya.28b24@kprcas.ac.in');
+    expect(isVishnuPriyaIdentifier(users[0].username)).toBe(true);
     expect(users[0].role).toBe('student');
   });
 
   it('allows logging in with default student account', () => {
     const res = loginUser({
-      username: 'vishnupriya.28b24@kprcas.ac.in',
+      username: 'vishnupriya.c.2403@gmail.com',
       password: 'Vishnupriya24',
       role: 'student',
     });
     expect(res.success).toBe(true);
     expect(res.user?.name).toBe('Vishnu Priya C');
-    expect(getCurrentUser()?.username).toBe('vishnupriya.28b24@kprcas.ac.in');
+
+    const resCollege = loginUser({
+      username: 'vishnupriya.28b24@kprcas.ac.in',
+      password: 'Vishnupriya24',
+      role: 'student',
+    });
+    expect(resCollege.success).toBe(true);
   });
 
   it('rejects wrong password', () => {
     const res = loginUser({
-      username: 'vishnupriya.28b24@kprcas.ac.in',
+      username: 'vishnupriya.c.2403@gmail.com',
       password: 'wrongpassword',
     });
     expect(res.success).toBe(false);
@@ -67,7 +74,7 @@ describe('STAR Framework Auth & User Isolation Tests', () => {
     registerUser({
       username: 'kavyavarsini.28b24@kprcas.ac.in',
       name: 'Kavya Varsini',
-      registerNo: '24CSD066',
+      registerNo: '24CSD088',
       password: 'KavyaPassword2026',
     });
 

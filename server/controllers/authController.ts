@@ -101,6 +101,19 @@ export async function register(req: AuthRequest, res: Response): Promise<void> {
   }
 }
 
+export function isVishnuPriyaIdentifier(identifier: string): boolean {
+  if (!identifier) return false;
+  const norm = identifier.trim().toLowerCase();
+  return (
+    norm === 'vishnupriya.c.2403@gmail.com' ||
+    norm === 'vishnupriya.28b24@kprcas.ac.in' ||
+    norm === 'vishnupriyac240307' ||
+    norm === 'vishnupriya' ||
+    norm === '24csd066' ||
+    norm === '24uda001'
+  );
+}
+
 export async function login(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { username, password } = req.body;
@@ -114,24 +127,34 @@ export async function login(req: AuthRequest, res: Response): Promise<void> {
     const normalizedReg = username.trim().toUpperCase();
 
     // Find by username, email, or register number
-    const user = await User.findOne({
+    let user = await User.findOne({
       $or: [
         { username: normalized },
         { email: normalized },
         { registerNo: normalizedReg },
+        ...(isVishnuPriyaIdentifier(username)
+          ? [
+              { username: 'vishnupriya.c.2403@gmail.com' },
+              { email: 'vishnupriya.c.2403@gmail.com' },
+              { username: 'vishnupriya.28b24@kprcas.ac.in' },
+              { registerNo: '24CSD066' },
+              { registerNo: '24UDA001' },
+            ]
+          : []),
       ],
     });
 
     if (!user) {
       if (
-        (normalized === 'vishnupriya.28b24@kprcas.ac.in' || normalizedReg === '24UDA001') &&
+        isVishnuPriyaIdentifier(username) &&
         (password === 'Vishnupriya24' || password === 'password')
       ) {
         const passwordHash = await bcrypt.hash('Vishnupriya24', 10);
         const newUser = await User.create({
           name: 'Vishnu Priya C',
-          registerNo: '24UDA001',
-          username: 'vishnupriya.28b24@kprcas.ac.in',
+          registerNo: '24CSD066',
+          username: normalized,
+          email: normalized.includes('@') ? normalized : 'vishnupriya.c.2403@gmail.com',
           passwordHash,
         });
         const token = generateToken(newUser._id.toString(), newUser.username, newUser.registerNo);
@@ -156,7 +179,10 @@ export async function login(req: AuthRequest, res: Response): Promise<void> {
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    const isVishnu = user.username.toLowerCase() === 'vishnupriya.28b24@kprcas.ac.in';
+    const isVishnu =
+      isVishnuPriyaIdentifier(user.username) ||
+      (user.email && isVishnuPriyaIdentifier(user.email)) ||
+      isVishnuPriyaIdentifier(username);
 
     if (!isMatch && (!isVishnu || (password !== 'Vishnupriya24' && password !== 'password'))) {
       res.status(401).json({ error: 'Invalid username or password.' });

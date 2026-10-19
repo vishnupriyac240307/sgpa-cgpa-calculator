@@ -17,12 +17,26 @@ function simpleHash(str: string): string {
   return 'sf_' + Math.abs(hash).toString(36);
 }
 
+export function isVishnuPriyaIdentifier(identifier: string): boolean {
+  if (!identifier) return false;
+  const norm = identifier.trim().toLowerCase();
+  return (
+    norm === 'vishnupriya.c.2403@gmail.com' ||
+    norm === 'vishnupriya.28b24@kprcas.ac.in' ||
+    norm === 'vishnupriyac240307' ||
+    norm === 'vishnupriya' ||
+    norm === '24csd066' ||
+    norm === '24uda001'
+  );
+}
+
 // Initial default user for seamless instant access
 const DEFAULT_USER: StarUser = {
   id: 'user_vishnupriya',
-  username: 'vishnupriya.28b24@kprcas.ac.in',
+  username: 'vishnupriya.c.2403@gmail.com',
   name: 'Vishnu Priya C',
-  registerNo: '24UDA001',
+  registerNo: '24CSD066',
+  email: 'vishnupriya.c.2403@gmail.com',
   role: 'student',
   passwordHash: simpleHash('Vishnupriya24'),
   createdAt: new Date().toISOString(),
@@ -48,11 +62,17 @@ export function getAllUsers(): StarUser[] {
     // Ensure default Vishnu Priya account is updated to Vishnupriya24 hash if stale
     const vishnu = users.find(
       (u) =>
-        u.username.toLowerCase() === 'vishnupriya.28b24@kprcas.ac.in' ||
+        isVishnuPriyaIdentifier(u.username) ||
+        (u.email && isVishnuPriyaIdentifier(u.email)) ||
         u.id === 'user_vishnupriya'
     );
-    if (vishnu && vishnu.passwordHash !== simpleHash('Vishnupriya24')) {
-      vishnu.passwordHash = simpleHash('Vishnupriya24');
+    if (vishnu) {
+      if (vishnu.passwordHash !== simpleHash('Vishnupriya24')) {
+        vishnu.passwordHash = simpleHash('Vishnupriya24');
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      }
+    } else {
+      users.push(DEFAULT_USER);
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
     }
 
@@ -147,13 +167,39 @@ export function loginUser(params: {
   const normalized = username.trim().toLowerCase();
   const users = getAllUsers();
 
-  // Search by full username, email prefix, or register number
-  const user = users.find((u) => {
+  // Search by full username, email, email prefix, or register number
+  let user = users.find((u) => {
     const uLower = u.username.toLowerCase();
+    const emailLower = (u.email || '').toLowerCase();
     const prefix = uLower.split('@')[0];
+    const emailPrefix = emailLower.split('@')[0];
     const regLower = u.registerNo.toLowerCase();
-    return uLower === normalized || prefix === normalized || regLower === normalized;
+
+    return (
+      uLower === normalized ||
+      emailLower === normalized ||
+      prefix === normalized ||
+      emailPrefix === normalized ||
+      regLower === normalized ||
+      (isVishnuPriyaIdentifier(normalized) && (isVishnuPriyaIdentifier(uLower) || u.id === 'user_vishnupriya'))
+    );
   });
+
+  // If Vishnu Priya logs in with vishnupriya.c.2403@gmail.com and entry wasn't in users list yet
+  if (!user && isVishnuPriyaIdentifier(normalized) && (password === 'Vishnupriya24' || password === 'password')) {
+    user = {
+      id: 'user_vishnupriya',
+      username: normalized,
+      name: 'Vishnu Priya C',
+      registerNo: '24CSD066',
+      email: normalized.includes('@') ? normalized : 'vishnupriya.c.2403@gmail.com',
+      role: 'student',
+      passwordHash: simpleHash('Vishnupriya24'),
+      createdAt: new Date().toISOString(),
+    };
+    users.push(user);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  }
 
   if (!user) {
     return { success: false, error: 'Invalid username or password' };
@@ -166,8 +212,10 @@ export function loginUser(params: {
   // Strictly verify password against this specific user's passwordHash
   const inputHash = simpleHash(password);
   const isVishnu =
-    user.username.toLowerCase() === 'vishnupriya.28b24@kprcas.ac.in' ||
-    user.id === 'user_vishnupriya';
+    isVishnuPriyaIdentifier(user.username) ||
+    (user.email && isVishnuPriyaIdentifier(user.email)) ||
+    user.id === 'user_vishnupriya' ||
+    isVishnuPriyaIdentifier(normalized);
 
   const isValid =
     user.passwordHash === inputHash ||

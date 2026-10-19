@@ -17,6 +17,7 @@ import {
   setCurrentUser as setCachedUser,
   getUserAcademicData as getCachedAcademicData,
   saveUserAcademicData as saveCachedAcademicData,
+  isVishnuPriyaIdentifier,
 } from './utils/authStorage';
 
 import { StarFrameworkAuth } from './components/StarFrameworkAuth';
@@ -60,9 +61,9 @@ export function App() {
         if (
           cached &&
           !token &&
-          (cached.username.toLowerCase() === 'vishnupriya.28b24@kprcas.ac.in' ||
+          (isVishnuPriyaIdentifier(cached.username) ||
             cached.id === 'user_vishnupriya' ||
-            cached.registerNo.toUpperCase() === '24CSD066')
+            isVishnuPriyaIdentifier(cached.registerNo))
         ) {
           try {
             await loginApi({
