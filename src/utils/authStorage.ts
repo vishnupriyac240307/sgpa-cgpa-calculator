@@ -146,17 +146,14 @@ export function loginUser(params: {
     return { success: false, error: 'Invalid username or password' };
   }
 
-  // If password provided, verify hash; also accept common default passwords
-  if (password) {
-    const inputHash = simpleHash(password);
-    const validMatches = [
-      user.passwordHash,
-      simpleHash('Vishnupriya24'),
-      simpleHash('password'),
-    ];
-    if (user.passwordHash && !validMatches.includes(inputHash) && password !== 'Vishnupriya24' && password !== 'password') {
-      return { success: false, error: 'Invalid username or password' };
-    }
+  if (!password) {
+    return { success: false, error: 'Invalid username or password' };
+  }
+
+  // Strictly verify password against this specific user's passwordHash
+  const inputHash = simpleHash(password);
+  if (user.passwordHash !== inputHash) {
+    return { success: false, error: 'Invalid username or password' };
   }
 
   setCurrentUser(user);
@@ -255,19 +252,9 @@ export function changePasswordInStorage(
 
     const user = users[index];
 
-    // Verify current password
-    const validMatches = [
-      user.passwordHash,
-      simpleHash('Vishnupriya24'),
-      simpleHash('password'),
-    ];
+    // Verify current password strictly against this user's passwordHash
     const inputHash = simpleHash(currentPassword);
-    const isValid =
-      (user.passwordHash && validMatches.includes(inputHash)) ||
-      currentPassword === 'Vishnupriya24' ||
-      currentPassword === 'password';
-
-    if (!isValid) {
+    if (user.passwordHash !== inputHash) {
       return { success: false, error: 'Current password is incorrect.' };
     }
 

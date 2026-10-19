@@ -46,7 +46,7 @@ describe('STAR Framework Auth & User Isolation Tests', () => {
   it('allows logging in with default student account', () => {
     const res = loginUser({
       username: 'vishnupriya.28b24@kprcas.ac.in',
-      password: 'password',
+      password: 'Vishnupriya24',
       role: 'student',
     });
     expect(res.success).toBe(true);
@@ -60,6 +60,32 @@ describe('STAR Framework Auth & User Isolation Tests', () => {
       password: 'wrongpassword',
     });
     expect(res.success).toBe(false);
+  });
+
+  it('rejects login when attempting to use another user\'s password', () => {
+    // Register Kavya with a unique password
+    registerUser({
+      username: 'kavyavarsini.28b24@kprcas.ac.in',
+      name: 'Kavya Varsini',
+      registerNo: '24CSD066',
+      password: 'KavyaPassword2026',
+    });
+
+    // Attempting to log into Kavya's account with Vishnu's password must FAIL
+    const crossLoginRes = loginUser({
+      username: 'kavyavarsini.28b24@kprcas.ac.in',
+      password: 'Vishnupriya24',
+    });
+    expect(crossLoginRes.success).toBe(false);
+    expect(crossLoginRes.error).toBe('Invalid username or password');
+
+    // Logging in with Kavya's actual password must SUCCEED
+    const validLoginRes = loginUser({
+      username: 'kavyavarsini.28b24@kprcas.ac.in',
+      password: 'KavyaPassword2026',
+    });
+    expect(validLoginRes.success).toBe(true);
+    expect(validLoginRes.user?.name).toBe('Kavya Varsini');
   });
 
   it('registers a new student account', () => {

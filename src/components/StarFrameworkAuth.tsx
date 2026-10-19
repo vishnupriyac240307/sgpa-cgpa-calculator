@@ -9,8 +9,8 @@ interface StarFrameworkAuthProps {
 
 export const StarFrameworkAuth: React.FC<StarFrameworkAuthProps> = ({ onLoginSuccess }) => {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [username, setUsername] = useState('vishnupriya.28b24@kprcas.ac.in');
-  const [password, setPassword] = useState('Vishnupriya24');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Sign up specific fields
