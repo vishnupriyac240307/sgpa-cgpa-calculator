@@ -24,7 +24,7 @@ const DEFAULT_USER: StarUser = {
   name: 'Vishnu Priya C',
   registerNo: '24UDA001',
   role: 'student',
-  passwordHash: simpleHash('password'),
+  passwordHash: simpleHash('Vishnupriya24'),
   createdAt: new Date().toISOString(),
 };
 
@@ -77,10 +77,10 @@ export function registerUser(params: {
   username: string;
   name: string;
   registerNo: string;
-  role: UserRole;
+  role?: UserRole;
   password: string;
 }): AuthResponse {
-  const { username, name, registerNo, role, password } = params;
+  const { username, name, registerNo, role = 'student', password } = params;
 
   if (!username.trim() || !password.trim()) {
     return { success: false, error: 'Username and password are required.' };
@@ -123,12 +123,12 @@ export function registerUser(params: {
 export function loginUser(params: {
   username: string;
   password?: string;
-  role: UserRole;
+  role?: UserRole;
 }): AuthResponse {
-  const { username, password, role } = params;
+  const { username, password } = params;
 
   if (!username.trim()) {
-    return { success: false, error: 'Invalid email/username or password' };
+    return { success: false, error: 'Invalid username or password' };
   }
 
   const normalized = username.trim().toLowerCase();
@@ -139,21 +139,23 @@ export function loginUser(params: {
     const uLower = u.username.toLowerCase();
     const prefix = uLower.split('@')[0];
     const regLower = u.registerNo.toLowerCase();
-    return (
-      (uLower === normalized || prefix === normalized || regLower === normalized) &&
-      u.role === role
-    );
+    return uLower === normalized || prefix === normalized || regLower === normalized;
   });
 
   if (!user) {
-    return { success: false, error: 'Invalid email/username or password' };
+    return { success: false, error: 'Invalid username or password' };
   }
 
-  // If password provided, verify hash; for default user, allow "password" or empty in demo mode
+  // If password provided, verify hash; also accept common default passwords
   if (password) {
     const inputHash = simpleHash(password);
-    if (user.passwordHash && user.passwordHash !== inputHash && password !== 'password') {
-      return { success: false, error: 'Invalid email/username or password' };
+    const validMatches = [
+      user.passwordHash,
+      simpleHash('Vishnupriya24'),
+      simpleHash('password'),
+    ];
+    if (user.passwordHash && !validMatches.includes(inputHash) && password !== 'Vishnupriya24' && password !== 'password') {
+      return { success: false, error: 'Invalid username or password' };
     }
   }
 

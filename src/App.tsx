@@ -267,7 +267,7 @@ export function App() {
             Welcome, <strong>{studentInfo.name || currentUser.name}</strong> ({currentUser.registerNo})! Enter your semester marks below to calculate your SGPA and CGPA automatically.
           </span>
           <span className="hidden md:inline-block text-xs font-bold text-[#15803d] bg-white px-2.5 py-1 rounded-md border border-emerald-200">
-            STAR FRAMEWORK &bull; Auto-Calculating
+            Auto-Calculating
           </span>
         </div>
 

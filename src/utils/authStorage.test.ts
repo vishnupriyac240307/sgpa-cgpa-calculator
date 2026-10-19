@@ -54,20 +54,12 @@ describe('STAR Framework Auth & User Isolation Tests', () => {
     expect(getCurrentUser()?.username).toBe('vishnupriya.28b24@kprcas.ac.in');
   });
 
-  it('rejects wrong password or wrong role', () => {
+  it('rejects wrong password', () => {
     const res = loginUser({
       username: 'vishnupriya.28b24@kprcas.ac.in',
       password: 'wrongpassword',
-      role: 'student',
     });
     expect(res.success).toBe(false);
-
-    const resRole = loginUser({
-      username: 'vishnupriya.28b24@kprcas.ac.in',
-      password: 'password',
-      role: 'faculty', // wrong role
-    });
-    expect(resRole.success).toBe(false);
   });
 
   it('registers a new student account', () => {
